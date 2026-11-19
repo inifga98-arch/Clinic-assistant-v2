@@ -1,0 +1,4 @@
+# Intake 2: missing fields. Expect ONE grouped question listing: phone, medications, surgeries, treatment goals.
+# Then send the line in i2_answers.txt, then "yes".
+New patient, Valeria Soto, born February 2 1996. She runs marathons. Left knee pain for three weeks, pain on the outside of the knee, 5 out of 10, appears after 8 kilometers of running. No injury, it started gradually when she increased her mileage.
+She's allergic to sulfa drugs. Ober test positive on the left, tight IT band. I think it's iliotibial band syndrome, left knee. Done.

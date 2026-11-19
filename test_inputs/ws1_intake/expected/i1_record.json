@@ -1,0 +1,16 @@
+{
+  "patient": {"full_name": "Diego Herrera", "date_of_birth": "1985-06-12", "phone": "55 4000 0001", "occupation": "Chef, works standing all day"},
+  "history": {
+    "reason_for_visit": "Right shoulder pain",
+    "mechanism_of_injury": "Lifted a heavy pot onto a high shelf about a month ago",
+    "body_region": "upper_limb",
+    "pain": {"location": "front and side of the right shoulder", "intensity_0_10": 6, "better_worse": "worse reaching overhead, better with rest"},
+    "allergies": "None", "medications": "None", "surgeries": "None",
+    "lifestyle": {"activity": "soccer", "frequency": "weekends"},
+    "exam_findings": "Painful arc 80 to 120 degrees, Hawkins positive right, external rotation strength 4/5",
+    "pt_diagnosis": "Rotator cuff tendinopathy, right shoulder",
+    "treatment_goals": "Reach overhead without pain in 4 weeks; return to soccer",
+    "treatment_instructions": "2 sessions a week"
+  },
+  "_check": "No missing-fields question (all required present). Email, emergency contact, family history: not recorded, and not invented."
+}

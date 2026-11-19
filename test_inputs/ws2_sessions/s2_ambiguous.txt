@@ -1,0 +1,3 @@
+# Session 2: ambiguous name. There are two Anas (Lopez and Martinez). Expect the agent to ask which one, with dates of birth, before saving anything.
+# Then answer: "Ana Martinez", then send s2_followup.txt
+Session with Ana today, she's doing much better.

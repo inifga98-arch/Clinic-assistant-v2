@@ -1,0 +1,5 @@
+# Intake 4: same name and date of birth as the seeded Ana Lopez. Expect the summary to flag
+# "Already in the CRM: Ana Lopez, born 3 Mar 1991", a "Differs" line for allergies (none vs the
+# record's penicillin) and offer new / same. Reply "same": the draft is cancelled, the reply
+# repeats the allergy difference, and no second Ana Lopez is created (check with list-patients).
+New patient, Ana Lopez, born March 3 1991, phone 55 1000 0001. Right knee pain after a ski fall, 5 out of 10, inner side of the knee. No allergies, no medications, no surgeries. My diagnosis is a grade 1 MCL sprain, right knee. Goal is to ski again by February. Done.

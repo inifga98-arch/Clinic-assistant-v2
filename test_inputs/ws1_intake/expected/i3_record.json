@@ -1,0 +1,15 @@
+{
+  "first_reply_should_ask_for": ["date of birth"],
+  "patient": {"full_name": "Marco Ruiz", "date_of_birth": "1992-09-09", "phone": "55 4000 0003", "occupation": "Office worker, sits at a desk all day"},
+  "history": {
+    "reason_for_visit": "Low back pain for two weeks",
+    "mechanism_of_injury": "Picked up his daughter",
+    "body_region": "spine",
+    "pain": {"location": "lower back, left side", "intensity_0_10": 7, "onset": "two weeks ago", "better_worse": "worse sitting, better walking"},
+    "allergies": "None", "medications": "None", "surgeries": "Appendix removed as a child",
+    "exam_findings": "Lumbar flexion limited, straight leg raise negative",
+    "pt_diagnosis": "Mechanical low back pain",
+    "treatment_goals": "Sit through a full workday without pain in 6 weeks"
+  },
+  "_check": "The first reply must NOT contain a date of birth computed from 'he's 34'. No other field is asked for."
+}

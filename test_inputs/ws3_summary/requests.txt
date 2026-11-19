@@ -1,0 +1,4 @@
+# One summary request per line. Compare each reply with expected/.
+Catch me up on Ana Lopez
+I'm seeing Carlos Mendez at 5, brief me
+Brief me on Ana Martinez before her session

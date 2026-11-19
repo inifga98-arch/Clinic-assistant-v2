@@ -1,0 +1,7 @@
+- Note saved for Carlos Mendez:
+  - Subjective: pain 4/10; phone alarm for posture breaks helps; doctor started naproxen 250 mg twice a day last week.
+  - Objective: lumbar flexion almost full; no spasm; bird-dog and dead bug 3 sets each, no pain.
+  - Plan: add hip hinge and light deadlift with a broomstick.
+  - pain_score: 4
+- Then the agent proposes updating medications to "Losartan 50 mg daily; naproxen 250 mg twice a day" and waits.
+- Medical history unchanged until "yes". After "yes", one row in history_changes (field medications).

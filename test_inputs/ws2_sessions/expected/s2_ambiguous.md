@@ -1,0 +1,5 @@
+- First reply asks which Ana: Ana Lopez (1991-03-03) or Ana Martinez (2001-11-15). Nothing saved, no draft opened.
+- After "Ana Martinez" and the follow-up: one note for Ana Martinez.
+  - Objective: single leg balance left 35 seconds; pain 2/10 on hops.
+  - Plan: jump landings next session.
+  - pain_score: 2

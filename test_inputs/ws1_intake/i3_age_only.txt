@@ -1,0 +1,4 @@
+# Intake 3: only an age, no date of birth. Expect ONE question asking for the date of birth
+# (never a calculated date). Then send the line in i3_answers.txt, then "yes".
+New patient, Marco Ruiz, he's 34, phone 55 4000 0003. Office worker, sits at a desk all day. Low back pain for two weeks, started when he picked up his daughter. Pain is in the lower back on the left side, 7 out of 10, worse sitting, better walking.
+No allergies, no medications, appendix removed when he was a kid. Lumbar flexion limited, straight leg raise negative. My diagnosis is mechanical low back pain. Goal is to sit through a full workday without pain in 6 weeks. Done.

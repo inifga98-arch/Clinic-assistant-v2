@@ -1,0 +1,15 @@
+{
+  "first_reply_should_ask_for": ["phone", "medications", "surgeries", "treatment goals"],
+  "patient": {"full_name": "Valeria Soto", "date_of_birth": "1996-02-02", "phone": "55 4000 0002"},
+  "history": {
+    "reason_for_visit": "Left knee pain for three weeks",
+    "mechanism_of_injury": "Gradual onset after increasing running mileage, no injury",
+    "body_region": "lower_limb",
+    "pain": {"location": "outside of the left knee", "intensity_0_10": 5, "better_worse": "appears after 8 km of running"},
+    "allergies": "Sulfa drugs", "medications": "None", "surgeries": "None",
+    "lifestyle": {"activity": "marathon running"},
+    "exam_findings": "Ober test positive left, tight IT band",
+    "pt_diagnosis": "Iliotibial band syndrome, left knee",
+    "treatment_goals": "Run 15 km without pain before her race in 8 weeks"
+  }
+}
