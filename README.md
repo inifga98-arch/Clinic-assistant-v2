@@ -7,6 +7,7 @@ clinical record it can search, hand over and print.
 - Spec: [docs/prd.md](docs/prd.md)
 - Build rules and folder ownership: [CLAUDE.md](CLAUDE.md)
 - Accounts, keys and onboarding status: [docs/setup-checklist.md](docs/setup-checklist.md)
+- Who builds what, and how to build, test and deploy: [docs/team-guide.md](docs/team-guide.md)
 
 ## Setup
 
