@@ -37,14 +37,20 @@ export async function handleOptOut(patient: Patient, phone: string): Promise<voi
  * session prep show it), alert the assigned therapist, and tell the patient to contact the
  * clinic, with 911 for emergencies. Never gives clinical advice (X-4).
  */
-export async function handleRedFlag(patient: Patient, phone: string, text: string, flags: RedFlag[]): Promise<void> {
+export async function handleRedFlag(
+  patient: Patient,
+  phone: string,
+  text: string,
+  flags: RedFlag[],
+  pain: number | null = painScoreIn(text),
+): Promise<void> {
   const firstName = patient.full_name.split(" ")[0];
 
   // Record first: even if a send fails, the flag is in the patient's timeline.
   const { error } = await db().from("activity_logs").insert({
     patient_id: patient.id,
     activity: "Reporte del paciente",
-    pain_nprs: painScoreIn(text),
+    pain_nprs: pain,
     comment: text.slice(0, 1000),
     red_flag: true,
   });

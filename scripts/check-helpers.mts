@@ -2,7 +2,10 @@
 import { normalizePhone, toWhatsAppAddress } from "../lib/whatsapp/phone.ts";
 import { SoapExtraction } from "../lib/ai/soap-schema.ts";
 import { detectRedFlags, isOptOut, painScoreIn } from "../lib/agents/patient/signals.ts";
-import { formatTime, parseTime, parseYesNo } from "../lib/agents/patient/parse.ts";
+import {
+  describeExercise, formatTime, parseCheckinStatus, parseNumberList, parsePainReply, parseTime, parseYesNo,
+} from "../lib/agents/patient/parse.ts";
+import { clinicTimeToUtc, clinicToday } from "../lib/agents/patient/time.ts";
 import { zodResponseFormat } from "openai/helpers/zod";
 import twilio from "twilio";
 
@@ -105,6 +108,38 @@ for (const [text, expected] of timeCases) eq(parseTime(text), expected, `time: "
 eq(formatTime("19:00:00"), "7:00 pm", "format 19:00");
 eq(formatTime("08:05"), "8:05 am", "format 08:05");
 eq(formatTime("00:00"), "12:00 am", "format midnight");
+
+// Exercise check-in parsers (P-3).
+const statusCases: Array<[string, boolean, string | null]> = [
+  ["checkin_some", true, "some"],
+  ["Hecho", true, "all"],
+  ["ya hice mis ejercicios", true, "all"],
+  ["algunos", true, "some"],
+  ["Hoy no", true, "none"],
+  ["no pude, mucho trabajo", true, "none"],
+  ["sí", true, null],
+  ["no", true, null],
+  ["sí", false, "all"],
+  ["no", false, "none"],
+  ["hola", false, null],
+];
+for (const [text, strict, expected] of statusCases) eq(parseCheckinStatus(text, strict), expected, `checkin status: "${text}"`);
+eq(parseNumberList("1 y 3", 2), [1], "numbers outside the list dropped");
+eq(parseNumberList("1, 2, 2", 3), [1, 2], "repeats dropped");
+eq(parseNumberList("ninguno", 3), [], "no numbers");
+eq(parsePainReply("2"), { pain: 2, comment: null }, "pain 2");
+eq(parsePainReply("2, las sentadillas costaron mucho"), { pain: 2, comment: "las sentadillas costaron mucho" }, "pain + comment");
+eq(parsePainReply("3/10"), { pain: 3, comment: null }, "pain 3/10");
+eq(parsePainReply("sin dolor"), { pain: 0, comment: null }, "sin dolor = 0");
+eq(parsePainReply("10"), { pain: 10, comment: null }, "pain 10");
+eq(parsePainReply("me dolió un poco"), { pain: null, comment: null }, "no score asks again");
+eq(parsePainReply("25"), { pain: null, comment: null }, "25 is not a pain score");
+eq(describeExercise({ name: "Elevación de pierna recta", sets: 3, reps: 12, hold_seconds: null }), "Elevación de pierna recta 3×12", "describe sets×reps");
+eq(describeExercise({ name: "Sentadilla en pared", sets: 3, reps: null, hold_seconds: 30 }), "Sentadilla en pared 3×30 s", "describe sets×hold");
+
+// Clinic time (America/Mexico_City, UTC-6).
+eq(clinicToday(new Date("2026-11-24T03:00:00Z")), { date: "2026-11-23", weekday: 1 }, "9 pm Monday in CDMX is still Monday");
+eq(clinicTimeToUtc("2026-11-23", "19:00:00").toISOString(), "2026-11-24T01:00:00.000Z", "7 pm CDMX = 01:00 UTC next day");
 
 if (failed) {
   console.log(`${failed} check(s) failed`);

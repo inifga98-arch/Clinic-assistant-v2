@@ -53,3 +53,65 @@ export function formatTime(hhmm: string): string {
   const hour12 = h % 12 === 0 ? 12 : h % 12;
   return `${hour12}:${String(m).padStart(2, "0")} ${suffix}`;
 }
+
+// ---------------------------------------------------------------- exercise check-in (P-3)
+
+export type CheckinStatus = "all" | "some" | "none";
+
+/** Button ids on the reminder template (Done / Some / Not today). */
+export const CHECKIN_PAYLOADS: Record<string, CheckinStatus> = {
+  checkin_all: "all",
+  checkin_some: "some",
+  checkin_none: "none",
+};
+
+/**
+ * Words that clearly answer "how did your exercises go?". `strict` (no saved state) leaves
+ * out bare "sí" / "no" / "ya", which could be answers to something else.
+ */
+export function parseCheckinStatus(text: string, strict = false): CheckinStatus | null {
+  const payload = CHECKIN_PAYLOADS[text.trim()];
+  if (payload) return payload;
+  const t = normalize(text);
+  if (/^(hecho|listo|todos|todas|los hice todos|ya los hice|hice todos|complete|termine|done)\b/.test(t)) return "all";
+  if (/\bhice (todos )?mis ejercicios\b/.test(t)) return "all";
+  if (/^(algunos|algunas|some|unos|unas|la mitad|solo uno|solo una|nomas uno|nada mas uno)\b/.test(t)) return "some";
+  if (/^(hoy no|ninguno|ninguna|no pude|no los hice|no hice|not today)\b/.test(t)) return "none";
+  if (!strict) {
+    if (/^(si|ya|todo)\b/.test(t)) return "all";
+    if (/^(no|nada)\b/.test(t)) return "none";
+  }
+  return null;
+}
+
+/** "1, 3 y 4" -> [1, 3, 4]; only numbers from 1 to `max`, no repeats. */
+export function parseNumberList(text: string, max: number): number[] {
+  const nums = [...normalize(text).matchAll(/\b(\d{1,2})\b/g)].map((m) => Number(m[1]));
+  return [...new Set(nums)].filter((n) => n >= 1 && n <= max);
+}
+
+/**
+ * Pain reply to "0 to 10?": "2", "2, las sentadillas costaron", "sin dolor".
+ * Returns the score and whatever else they wrote as a comment.
+ */
+export function parsePainReply(text: string): { pain: number | null; comment: string | null } {
+  const raw = text.trim();
+  const t = normalize(raw);
+  if (/^(sin dolor|nada|ninguno|cero|no me dolio|no dolio|no me duele)\b/.test(t)) {
+    const rest = raw.replace(/^(sin dolor|nada|ninguno|cero|no me doli[oó]|no doli[oó]|no me duele)[\s,.;:-]*/i, "");
+    return { pain: 0, comment: rest || null };
+  }
+  const m = /^\s*(10|[0-9])(?:\s*(?:\/|de)\s*10)?(?![0-9])[\s,.;:-]*([\s\S]*)$/.exec(raw);
+  if (m) return { pain: Number(m[1]), comment: m[2].trim() || null };
+  return { pain: null, comment: null };
+}
+
+/** Plan item as shown to the patient: "Elevación de pierna recta 3×12", "Sentadilla en pared 3×30 s". */
+export function describeExercise(item: { name: string; sets: number | null; reps: number | null; hold_seconds: number | null }): string {
+  const dose = item.sets && item.reps ? `${item.sets}×${item.reps}`
+    : item.sets && item.hold_seconds ? `${item.sets}×${item.hold_seconds} s`
+    : item.reps ? `${item.reps} rep.`
+    : item.hold_seconds ? `${item.hold_seconds} s`
+    : "";
+  return dose ? `${item.name} ${dose}` : item.name;
+}
