@@ -9,7 +9,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "check": "node --no-warnings --import tsx scripts/check-helpers.mts",
-    "simulate": "node --conditions=react-server --env-file=.env.local --import tsx scripts/simulate.ts"
+    "simulate": "node --conditions=react-server --env-file=.env.local --import tsx scripts/simulate.ts",
+    "reminders": "node --conditions=react-server --env-file=.env.local --import tsx scripts/run-reminders.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
