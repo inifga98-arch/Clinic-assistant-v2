@@ -63,6 +63,28 @@ The contract between the router and the agents is `lib/agents/types.ts`
     npm run typecheck    # must be clean before every PR (count "error TS" lines)
     npm run lint
     npm run build
+    npm run check        # pure-helper self-checks (no network)
+
+## Testing flows without WhatsApp: the simulator
+
+`scripts/simulate.ts` runs the real router and agents against the shared Supabase database and
+prints replies in the terminal instead of sending them. No Twilio, tunnel or phone needed, so
+everyone can test their own flow at the same time. Use it for every flow change.
+
+    npm run simulate -- --list                          # who you can be
+    npm run simulate -- --as marina "hola"              # one message, then exit
+    npm run simulate -- --as inigo                      # interactive chat (/help for commands)
+    npm run simulate -- --as inigo --audio test_inputs/ws2_sessions/audio/s1_clean_vn1.mp3
+    npm run simulate -- --as cherub --reset             # forget where they are in a flow
+
+- `--as` takes a name fragment (accents optional) or a phone. Set `SIM_AS` in `.env.local` to
+  skip it.
+- It uses the person's real conversation state, so a simulated chat and their real WhatsApp
+  chat continue each other. `--reset` starts over.
+- Simulated messages are logged in `messages` with ids starting `SIM`; voice notes are
+  transcribed with the real OpenAI key.
+
+## Testing on real WhatsApp
 
 Expose the webhook for Twilio with a tunnel (e.g. `ngrok http 3000`) and set the Sandbox
 "When a message comes in" URL to `https://<tunnel>/api/whatsapp`. Set `PUBLIC_BASE_URL` to the

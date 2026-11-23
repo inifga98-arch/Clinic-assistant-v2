@@ -12,14 +12,41 @@ export interface Option {
   title: string; // shown to the user (WhatsApp limit: 20 chars for buttons, 24 for list rows)
 }
 
+/** One outgoing message, before it reaches a channel. */
+export type OutboundMessage =
+  | { kind: "text"; to: string; body: string }
+  | { kind: "template"; to: string; contentSid: string; variables: Record<string, string> };
+
+/** Delivers an outbound message and returns its message id. */
+export type Transport = (message: OutboundMessage) => Promise<string>;
+
+const twilioTransport: Transport = async (message) => {
+  const base = { from: requireEnv("TWILIO_WHATSAPP_FROM"), to: toWhatsAppAddress(message.to) };
+  const sent =
+    message.kind === "text"
+      ? await twilioClient().messages.create({ ...base, body: message.body })
+      : await twilioClient().messages.create({
+          ...base,
+          contentSid: message.contentSid,
+          contentVariables: JSON.stringify(message.variables),
+        });
+  return sent.sid;
+};
+
+let transport: Transport = twilioTransport;
+
+/**
+ * Replace how messages are delivered (the simulator prints them instead of sending).
+ * Production code never calls this.
+ */
+export function setTransport(next: Transport): void {
+  transport = next;
+}
+
 /** Plain text. Only allowed within 24 h of the user's last message. */
 export async function sendText(to: string, body: string): Promise<void> {
-  const msg = await twilioClient().messages.create({
-    from: requireEnv("TWILIO_WHATSAPP_FROM"),
-    to: toWhatsAppAddress(to),
-    body,
-  });
-  await logOutbound(to, msg.sid, body);
+  const sid = await transport({ kind: "text", to, body });
+  await logOutbound(to, sid, body);
 }
 
 /**
@@ -51,13 +78,8 @@ export async function sendTemplate(
   contentSid: string,
   variables: Record<string, string> = {},
 ): Promise<void> {
-  const msg = await twilioClient().messages.create({
-    from: requireEnv("TWILIO_WHATSAPP_FROM"),
-    to: toWhatsAppAddress(to),
-    contentSid,
-    contentVariables: JSON.stringify(variables),
-  });
-  await logOutbound(to, msg.sid, `[template ${contentSid}] ${JSON.stringify(variables)}`);
+  const sid = await transport({ kind: "template", to, contentSid, variables });
+  await logOutbound(to, sid, `[template ${contentSid}] ${JSON.stringify(variables)}`);
 }
 
 async function logOutbound(to: string, sid: string, body: string): Promise<void> {
@@ -74,6 +96,7 @@ export function normalizeText(s: string): string {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
+    .replace(/^[¡¿]+/, "")
     .replace(/[.!¡?¿,]+$/g, "")
     .trim();
 }

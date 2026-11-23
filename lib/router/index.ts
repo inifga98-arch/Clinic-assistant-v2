@@ -37,6 +37,23 @@ export async function findSender(phone: string): Promise<Sender> {
   return { role: "unknown" };
 }
 
+/**
+ * Route a stored message and, if anything fails, tell the sender instead of going silent.
+ * Never throws: the webhook calls it after replying to Twilio, so nobody would catch it.
+ */
+export async function processIncoming(message: IncomingMessage): Promise<void> {
+  try {
+    await routeMessage(message);
+  } catch (err) {
+    console.error("[router] routing failed", message.sid, err);
+    try {
+      await sendText(message.phone, "Algo salió mal de nuestro lado. Intenta de nuevo en un momento.");
+    } catch (sendErr) {
+      console.error("[router] could not send the error notice", message.sid, sendErr);
+    }
+  }
+}
+
 /** Route one incoming message to the right agent and persist the next state. */
 export async function routeMessage(message: IncomingMessage): Promise<void> {
   const sender = await findSender(message.phone);

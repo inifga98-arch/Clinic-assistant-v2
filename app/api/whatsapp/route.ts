@@ -1,9 +1,8 @@
 import { after, NextResponse, type NextRequest } from "next/server";
-import { db } from "@/lib/db/server";
 import type { IncomingMessage } from "@/lib/agents/types";
-import { routeMessage } from "@/lib/router";
+import { processIncoming } from "@/lib/router";
+import { recordIncoming } from "@/lib/router/inbox";
 import { normalizePhone } from "@/lib/whatsapp/phone";
-import { sendText } from "@/lib/whatsapp/send";
 import { isValidTwilioRequest } from "@/lib/whatsapp/twilio";
 
 // Twilio WhatsApp webhook. Owner: Person 3.
@@ -33,38 +32,16 @@ export async function POST(req: NextRequest) {
   const message = parseMessage(params, sid, from);
 
   // Insert first; the unique twilio_sid makes Twilio retries a no-op.
-  const { data: inserted, error } = await db()
-    .from("messages")
-    .upsert(
-      {
-        twilio_sid: sid,
-        phone: message.phone,
-        direction: "in",
-        body: message.body || null,
-        media_url: message.media[0]?.url ?? null,
-        media_type: message.media[0]?.contentType ?? null,
-      },
-      { onConflict: "twilio_sid", ignoreDuplicates: true },
-    )
-    .select("id");
-  if (error) {
-    console.error("[webhook] could not save message", sid, error.message);
+  let isNew: boolean;
+  try {
+    isNew = await recordIncoming(message);
+  } catch (err) {
+    console.error("[webhook] could not save message", sid, err);
     return new NextResponse("Storage error", { status: 500 });
   }
-  if (!inserted || inserted.length === 0) return twiml(); // duplicate delivery
+  if (!isNew) return twiml(); // duplicate delivery
 
-  after(async () => {
-    try {
-      await routeMessage(message);
-    } catch (err) {
-      console.error("[webhook] routing failed", sid, err);
-      try {
-        await sendText(message.phone, "Algo salió mal de nuestro lado. Intenta de nuevo en un momento.");
-      } catch (sendErr) {
-        console.error("[webhook] could not send the error notice", sid, sendErr);
-      }
-    }
-  });
+  after(() => processIncoming(message));
 
   return twiml();
 }

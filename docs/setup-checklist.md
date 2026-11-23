@@ -28,8 +28,11 @@ Status as of 23 Nov 2026. Tick items off in a PR as they're done.
 4. Add yourself as a therapist in Supabase (Table editor → `therapists`): your WhatsApp number
    in E.164 without spaces (`+5255...`) and the email you'll use for the CRM, clinic
    `00000000-0000-4000-8000-000000000001`.
-5. Check the setup: `npm run typecheck`, `npm run check`, `npm run dev`.
-6. Send "hola" to the Sandbox number. You should get the therapist menu.
+5. Check the setup: `npm run typecheck`, `npm run check`, then
+   `npm run simulate -- --as <your name> "hola"`. You should see the therapist menu printed
+   in the terminal. This is how you test flows day to day, with no phone or tunnel.
+6. On real WhatsApp: send "hola" to the Sandbox number (works only when the webhook points
+   at a running server: Vercel, or someone's tunnel).
 
 ## Working together
 

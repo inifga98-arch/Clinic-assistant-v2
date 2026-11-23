@@ -1,7 +1,9 @@
 # Test inputs
 
 > Ported from v1. The message scripts, voice-note audio and `expected/` outputs are still valid
-> test cases; the `python scripts/...` commands below belong to v1 and do not exist here yet.
+> test cases; the `python scripts/...` commands below belong to v1. In Bitácora, send each line
+> with `npm run simulate -- --as <name> "<line>"` (or paste them into interactive mode) and
+> voice notes with `npm run simulate -- --as <name> --audio <file>` (see CLAUDE.md).
 
 One folder per workstream. Each `*.txt` file is a sequence of messages: every non-empty line is
 one WhatsApp message (lines starting with # are ignored). Send them with the simulator:
