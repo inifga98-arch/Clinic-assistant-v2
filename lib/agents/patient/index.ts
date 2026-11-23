@@ -3,6 +3,7 @@ import type { AgentResult, PatientContext } from "@/lib/agents/types";
 import { sendText } from "@/lib/whatsapp/send";
 import { handleOptOut, handleRedFlag } from "./safety";
 import { detectRedFlags, isOptOut } from "./signals";
+import { handleWelcome, needsWelcome } from "./welcome";
 
 // Patient agent. Owner: Person 3. Flows C (reminder check-in) and D (activity log), plus
 // consent (P-1), opt-out "parar" (P-8) and red flags (P-6). See docs/prd.md.
@@ -26,8 +27,11 @@ export async function handlePatientMessage(ctx: PatientContext): Promise<AgentRe
     return { nextState: null };
   }
 
+  // P-1: nothing is logged until the patient accepts the privacy notice.
+  if (needsWelcome(ctx)) return handleWelcome(ctx);
+
   const firstName = patient.full_name.split(" ")[0];
-  // TODO(Person 3): consent, check-ins, activity logs.
+  // TODO(Person 3): check-ins, activity logs.
   await sendText(
     message.phone,
     `Hola, ${firstName}. Recibí tu mensaje. Pronto podrás registrar aquí tus ejercicios y actividades.`,

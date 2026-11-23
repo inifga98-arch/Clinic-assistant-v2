@@ -1,7 +1,8 @@
-// Quick self-check for the pure helpers (no network, no DB). Run: node scripts/check-helpers.mts
+// Quick self-check for the pure helpers (no network, no DB). Run: npm run check
 import { normalizePhone, toWhatsAppAddress } from "../lib/whatsapp/phone.ts";
 import { SoapExtraction } from "../lib/ai/soap-schema.ts";
 import { detectRedFlags, isOptOut, painScoreIn } from "../lib/agents/patient/signals.ts";
+import { formatTime, parseTime, parseYesNo } from "../lib/agents/patient/parse.ts";
 import { zodResponseFormat } from "openai/helpers/zod";
 import twilio from "twilio";
 
@@ -79,6 +80,31 @@ for (const text of noFlagCases) eq(detectRedFlags(text), [], `no red flag: "${te
 eq(detectRedFlags("hice 2 de 3 ejercicios", 9), ["severe_pain"], "structured pain score 9 flags");
 eq(painScoreIn("corrí 30 min, dolor de 6, luego 7/10"), 7, "highest pain score found");
 eq(painScoreIn("corrí 30 minutos"), null, "no pain score");
+
+// Welcome flow parsers (P-1).
+for (const t of ["sí", "Si, acepto", "acepto", "Claro!", "ok", "va"]) eq(parseYesNo(t), "yes", `yes: "${t}"`);
+for (const t of ["no", "No acepto", "no gracias", "mejor no"]) eq(parseYesNo(t), "no", `no: "${t}"`);
+eq(parseYesNo("¿qué es esto?"), null, "unclear yes/no");
+const timeCases: Array<[string, string | null]> = [
+  ["7 pm", "19:00"],
+  ["7:30 pm", "19:30"],
+  ["19:30", "19:30"],
+  ["a las 8 de la noche", "20:00"],
+  ["8 de la mañana", "08:00"],
+  ["8:00 am", "08:00"],
+  ["a las 6", "18:00"],
+  ["mediodía", "12:00"],
+  ["como a las 7 y media de la noche", "19:30"],
+  ["8 y cuarto", "08:15"],
+  ["12 am", "00:00"],
+  ["Noche (7:00 pm)", "19:00"],
+  ["cuando sea", null],
+  ["25:00", null],
+];
+for (const [text, expected] of timeCases) eq(parseTime(text), expected, `time: "${text}"`);
+eq(formatTime("19:00:00"), "7:00 pm", "format 19:00");
+eq(formatTime("08:05"), "8:05 am", "format 08:05");
+eq(formatTime("00:00"), "12:00 am", "format midnight");
 
 if (failed) {
   console.log(`${failed} check(s) failed`);
