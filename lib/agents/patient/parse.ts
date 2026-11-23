@@ -115,3 +115,45 @@ export function describeExercise(item: { name: string; sets: number | null; reps
     : "";
   return dose ? `${item.name} ${dose}` : item.name;
 }
+
+// ---------------------------------------------------------------- activity log (P-5)
+
+/** Does a free-text message describe a physical activity ("corrí 20 min", "fui al gym")? */
+export function looksLikeActivity(text: string): boolean {
+  const t = normalize(text);
+  return /\b(corr\w*|trot\w*|camin\w*|nad[eoa]\w*|natacion|bici\w*|pedal\w*|spinning|escaleras|gimnasio|gym|pesas|levant\w*|yoga|pilates|bail\w*|futbol|tenis|padel|basquet|carrera|senderismo|escal\w*|\d+ ?km)\b/.test(t);
+}
+
+const WORD_MINUTES: Array<[RegExp, number]> = [
+  [/\bhora y media\b/, 90],
+  [/\bhora y cuarto\b/, 75],
+  [/\bmedia hora\b/, 30],
+  [/\bcuarto de hora\b/, 15],
+  [/\buna hora\b/, 60],
+  [/\bdos horas\b/, 120],
+];
+
+/**
+ * Duration in minutes: "25 min", "1 hora", "1h 20", "hora y media", or a bare "45" when it
+ * answers "how long?". Distances ("5 km") are not durations.
+ */
+export function parseDuration(text: string): number | null {
+  const t = normalize(text);
+  const hm = /\b(\d{1,2}) ?(?:h|hr|hrs|hora|horas)\b(?: y)? ?(\d{1,2})? ?(?:min|mins|minutos)?\b/.exec(t);
+  if (hm) return Number(hm[1]) * 60 + (hm[2] ? Number(hm[2]) : 0) + (/\by media\b/.test(t) && !hm[2] ? 30 : 0);
+  const min = /\b(\d{1,3}) ?(?:min|mins|minutos|minuto)\b/.exec(t);
+  if (min) return Number(min[1]);
+  for (const [pattern, minutes] of WORD_MINUTES) if (pattern.test(t)) return minutes;
+  const bare = /^(?:como |unos |unas |mas o menos )?(\d{1,3})$/.exec(t);
+  if (bare && !/\bkm\b/.test(t)) return Number(bare[1]);
+  return null;
+}
+
+/** When the pain started, in minutes: "a los 20 minutos", "minuto 20", "20", "desde el inicio" = 0. */
+export function parseOnset(text: string): number | null {
+  const t = normalize(text);
+  if (/\b(desde el (inicio|principio|comienzo)|al empezar|desde que empece|de inmediato)\b/.test(t)) return 0;
+  const m = /\bminuto (\d{1,3})\b/.exec(t);
+  if (m) return Number(m[1]);
+  return parseDuration(text);
+}

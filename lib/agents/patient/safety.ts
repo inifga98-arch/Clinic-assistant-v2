@@ -42,19 +42,22 @@ export async function handleRedFlag(
   phone: string,
   text: string,
   flags: RedFlag[],
-  pain: number | null = painScoreIn(text),
+  opts: { pain?: number | null; record?: boolean } = {},
 ): Promise<void> {
   const firstName = patient.full_name.split(" ")[0];
 
-  // Record first: even if a send fails, the flag is in the patient's timeline.
-  const { error } = await db().from("activity_logs").insert({
-    patient_id: patient.id,
-    activity: "Reporte del paciente",
-    pain_nprs: pain,
-    comment: text.slice(0, 1000),
-    red_flag: true,
-  });
-  if (error) console.error("[patient] could not save red flag", patient.id, error.message);
+  // Record first: even if a send fails, the flag is in the patient's timeline. Callers that
+  // already saved a log with red_flag = true (activity log) pass record: false.
+  if (opts.record !== false) {
+    const { error } = await db().from("activity_logs").insert({
+      patient_id: patient.id,
+      activity: "Reporte del paciente",
+      pain_nprs: opts.pain ?? painScoreIn(text),
+      comment: text.slice(0, 1000),
+      red_flag: true,
+    });
+    if (error) console.error("[patient] could not save red flag", patient.id, error.message);
+  }
 
   const therapist = await assignedTherapist(patient);
   const alerted = therapist ? await alertTherapist(therapist, patient, text, flags) : false;

@@ -121,7 +121,7 @@ export async function handleCheckin(ctx: PatientContext): Promise<AgentResult> {
     const flags = detectRedFlags(reply, pain);
     if (flags.length > 0) {
       const summary = `Check-in de ejercicios: dolor ${pain}/10${comment ? `. ${comment}` : ""}`;
-      await handleRedFlag(patient, message.phone, summary, flags, pain);
+      await handleRedFlag(patient, message.phone, summary, flags, { pain });
       return { nextState: null };
     }
     await sendText(message.phone, "Gracias, lo anoté para tu terapeuta. ¡Sigue así!");
