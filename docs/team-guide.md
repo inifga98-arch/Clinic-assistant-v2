@@ -113,12 +113,35 @@ with the service-role key. A login only sees data if its email matches an active
 
 ## Cherub: next steps
 
-1. Decide how reminders get scheduled (daily Vercel cron on Hobby, an external scheduler hitting
-   `/api/cron/reminders` with `CRON_SECRET`, or a different design), then add `CRON_SECRET` in
-   Vercel.
-2. Create and submit the welcome and reminder templates in Twilio (needs console access), then
-   add their `HX...` ids to Vercel.
-3. P-7, P-9 and the out-of-window red-flag alert.
+1. **Register Bitácora's own WhatsApp sender** (start now: Meta's checks take days). The Sandbox
+   can't send our own templates, so welcome and daily reminders outside the 24 h window only
+   work from a registered sender.
+   - Twilio console → Messaging → Senders → WhatsApp senders → Create new sender, then follow
+     the Meta signup (it creates or links a Meta Business portfolio and WhatsApp Business account).
+   - You need: a phone number that is **not** already on WhatsApp (a Twilio number bought in the
+     console is simplest), the business name and website to show, and a Facebook login with admin
+     rights on the Meta Business portfolio.
+   - Twilio user roles: if your Developer role can't create senders, ask Iñigo to raise it to
+     Administrator for this step.
+   - Display name: something Meta accepts for a clinic service (e.g. "Bitácora"); the real
+     clinic's name needs proof it is theirs.
+   - When it's approved: set `TWILIO_WHATSAPP_FROM` (Vercel and `.env.local`) to the new
+     number, point its incoming-message webhook at `https://clinic-assistant-v2.vercel.app/api/whatsapp`,
+     and tell the team (everyone then messages the new number instead of the Sandbox).
+2. **Templates**: create the welcome (P-1) and daily reminder (P-2) templates in Twilio →
+   Messaging → Content Template Builder, category Utility, Spanish (es-MX) copy from the PRD.
+   Submit them for WhatsApp approval once the sender exists, then add their `HX...` ids to Vercel
+   as `TWILIO_TEMPLATE_WELCOME` / `TWILIO_TEMPLATE_REMINDER`. Until then the code sends plain
+   text, which only arrives inside the patient's 24 h window.
+3. **Schedule the reminders**: nothing calls `/api/cron/reminders` yet. Vercel Hobby cron runs at
+   most once a day; the PRD wants every 15 min. Pick a design (daily cron at a fixed hour, an
+   external scheduler calling the endpoint with `Authorization: Bearer <CRON_SECRET>`, or Pro),
+   then add `CRON_SECRET` in Vercel.
+4. P-7 forward questions to the therapist, P-9 pause after missed reminders, and the red-flag
+   alert to the therapist outside their 24 h window (needs a template too).
+
+Demo until the sender exists: the patient messages first (check-in or activity log), so
+reminders and replies stay inside the 24 h window.
 
 ## Iñigo: next steps
 
@@ -126,12 +149,15 @@ with the service-role key. A login only sees data if its email matches an active
    supersede the old plan, create `plan_items`.
 2. Flow A, then E and F.
 
-## Open blockers (Iñigo to unblock)
+## Access (done 24 Nov 2026)
 
-- [ ] Invite Marina and Cherub to Supabase (Propelia org → Team).
-- [ ] Share `.env.local` through the password manager.
-- [ ] Supabase Auth for the CRM: Site URL `https://clinic-assistant-v2.vercel.app`, redirect URLs
-      for it and `http://localhost:3000`; real emails on the therapist rows.
-- [ ] Vercel: give Marina and Cherub access to build and error logs (team members), or turn off
-      preview protection.
-- [ ] Twilio console access for Cherub (for templates), or create the templates yourself.
+- [x] Supabase: Marina and Cherub invited (Propelia org).
+- [x] `.env.local` shared through the password manager.
+- [x] Supabase Auth for the CRM: Site URL `https://clinic-assistant-v2.vercel.app`; redirect URLs
+      `https://clinic-assistant-v2.vercel.app/**` and `http://localhost:3000/**`.
+- [x] CRM logins: active therapist rows for ifernandez@mba2027.hbs.edu,
+      mfyrigoukoulouri@mba2027.hbs.edu, ckapoor@mba2027.hbs.edu and
+      cherub.kapoor.c2021@iitbombay.org (Cherub's rows have no phone, so his WhatsApp stays a
+      patient). Remove Cherub's therapist rows before a real pilot.
+- [x] Vercel: Marina and Cherub are members of the Propelia team (build and error logs).
+- [x] Twilio: Cherub invited to the Clinic Assistant account (messages, logs, templates).

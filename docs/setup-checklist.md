@@ -6,11 +6,12 @@ Status as of 23 Nov 2026. Tick items off in a PR as they're done.
 
 - [x] GitHub repo `Clinic-assistant-v2` (public, `main` protected); Marina and Cherub have write access
 - [x] Supabase project `Clinic-assistant-v2` (Propelia org): schema and synthetic seed loaded
-- [ ] Invite Marina and Cherub to Supabase (Organization settings → Team)
+- [x] Invite Marina and Cherub to Supabase (Organization settings → Team)
 - [x] Twilio account active, WhatsApp Sandbox number +1 415 523 8886
 - [x] New OpenAI API key
-- [ ] Put the full `.env.local` in the team password manager (never in chat or the repo)
-- [ ] Submit the WhatsApp welcome and reminder templates in Twilio (Meta approval can take days)
+- [x] Put the full `.env.local` in the team password manager (never in chat or the repo)
+- [ ] Register our own WhatsApp sender, then submit the welcome and reminder templates (Cherub;
+      see docs/team-guide.md)
 - [x] Vercel project linked to the repo, env vars added, Sandbox webhook pointed at
       `https://clinic-assistant-v2.vercel.app/api/whatsapp` (one shared webhook for the whole team)
 - [ ] Add Cherub's new vars in Vercel: `CRON_SECRET`, `TWILIO_TEMPLATE_WELCOME`,
