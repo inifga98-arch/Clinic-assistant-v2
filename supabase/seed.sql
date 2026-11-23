@@ -1,9 +1,9 @@
 -- Synthetic seed data: 1 clinic, 2 therapists, 5 patients. NO real patients, ever.
 --
--- To test on WhatsApp, put your own number on a therapist (E.164, no "whatsapp:" prefix)
+-- To test on WhatsApp, put your own number on a therapist (E.164, no "whatsapp:" prefix; Mexican mobiles with the 1: +521...)
 -- in your local copy before running, or afterwards in the Supabase table editor:
---   update therapists set phone = '+5255XXXXXXXX', email = 'you@example.com' where full_name = 'Ana Torres';
--- The +52 55 0000 xxxx numbers below are placeholders and reach nobody.
+--   update therapists set phone = '+52155XXXXXXXX', email = 'you@example.com' where full_name = 'Ana Torres';
+-- The +52 1 55 ... numbers below are placeholders and reach nobody.
 -- Laura Méndez is NOT seeded: the demo script registers her by voice (PRD, Flow A).
 
 insert into clinics (id, name, address, whatsapp_number) values
@@ -11,35 +11,35 @@ insert into clinics (id, name, address, whatsapp_number) values
 
 insert into therapists (id, clinic_id, full_name, license_no, phone, email) values
   ('00000000-0000-4000-8000-000000000101', '00000000-0000-4000-8000-000000000001',
-   'Ana Torres', '12345678', '+525500000101', 'ana.torres@example.com'),
+   'Ana Torres', '12345678', '+5215500000101', 'ana.torres@example.com'),
   ('00000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000001',
-   'Diego Ramírez', '87654321', '+525500000102', 'diego.ramirez@example.com');
+   'Diego Ramírez', '87654321', '+5215500000102', 'diego.ramirez@example.com');
 
 insert into patients (id, clinic_id, full_name, phone, email, dob, sex, diagnosis, referring_doctor,
                       assigned_therapist_id, first_visit_at, last_visit_at, reminder_time,
                       consent_at, reminders_opt_in) values
   ('00000000-0000-4000-8000-000000000201', '00000000-0000-4000-8000-000000000001',
-   'Ana López', '+525510000001', 'ana.lopez@example.com', '1991-03-03', 'female',
+   'Ana López', '+5215510000001', 'ana.lopez@example.com', '1991-03-03', 'female',
    'Esguince grado I del ligamento colateral medial, rodilla derecha', 'Dr. Ruiz (ortopedia)',
    '00000000-0000-4000-8000-000000000101', '2026-10-08 10:00-06', '2026-11-12 10:00-06', '19:00',
    '2026-10-08 10:30-06', true),
   ('00000000-0000-4000-8000-000000000202', '00000000-0000-4000-8000-000000000001',
-   'Carlos Méndez', '+525510000002', 'carlos.mendez@example.com', '1978-07-21', 'male',
+   'Carlos Méndez', '+5215510000002', 'carlos.mendez@example.com', '1978-07-21', 'male',
    'Tendinopatía del manguito rotador, hombro derecho', 'Dra. Salas (ortopedia)',
    '00000000-0000-4000-8000-000000000101', '2026-10-20 12:00-06', '2026-11-10 12:00-06', '08:00',
    '2026-10-20 12:30-06', true),
   ('00000000-0000-4000-8000-000000000203', '00000000-0000-4000-8000-000000000001',
-   'Valeria Soto', '+525510000003', null, '1996-11-30', 'female',
+   'Valeria Soto', '+5215510000003', null, '1996-11-30', 'female',
    'Lumbalgia mecánica', null,
    '00000000-0000-4000-8000-000000000102', '2026-11-03 09:00-06', '2026-11-13 09:00-06', null,
    '2026-11-03 09:30-06', false),
   ('00000000-0000-4000-8000-000000000204', '00000000-0000-4000-8000-000000000001',
-   'Jorge Herrera', '+525510000004', 'jorge.herrera@example.com', '1985-06-12', 'male',
+   'Jorge Herrera', '+5215510000004', 'jorge.herrera@example.com', '1985-06-12', 'male',
    'Posoperatorio de reconstrucción de LCA, rodilla izquierda (semana 4)', 'Dr. Ruiz (ortopedia)',
    '00000000-0000-4000-8000-000000000102', '2026-10-28 17:00-06', '2026-11-14 17:00-06', '20:00',
    '2026-10-28 17:30-06', true),
   ('00000000-0000-4000-8000-000000000205', '00000000-0000-4000-8000-000000000001',
-   'Ana Martínez', '+525510000005', null, '1962-01-15', 'female',
+   'Ana Martínez', '+5215510000005', null, '1962-01-15', 'female',
    'Fascitis plantar, pie izquierdo', null,
    '00000000-0000-4000-8000-000000000101', '2026-11-11 11:00-06', '2026-11-11 11:00-06', null,
    null, false);

@@ -2,11 +2,16 @@ import "server-only";
 import { db } from "@/lib/db/server";
 import type { Conversation } from "@/lib/db/types";
 import type { ConversationState } from "@/lib/agents/types";
+import { normalizePhone } from "@/lib/whatsapp/phone";
 
 /** A flow left idle this long starts over from the menu (PRD: conversations table). */
 export const STATE_TTL_MS = 30 * 60 * 1000;
 
-export async function loadState(phone: string, now = new Date()): Promise<ConversationState | null> {
+// State is keyed by the normalised phone, so a caller passing a stored number (e.g. the
+// reminder scheduler with patient.phone) and the router passing WhatsApp's From agree.
+
+export async function loadState(rawPhone: string, now = new Date()): Promise<ConversationState | null> {
+  const phone = normalizePhone(rawPhone);
   const { data, error } = await db()
     .from("conversations")
     .select("*")
@@ -19,10 +24,11 @@ export async function loadState(phone: string, now = new Date()): Promise<Conver
 }
 
 export async function saveState(
-  phone: string,
+  rawPhone: string,
   role: Conversation["role"],
   state: ConversationState | null,
 ): Promise<void> {
+  const phone = normalizePhone(rawPhone);
   if (state === null) {
     const { error } = await db().from("conversations").delete().eq("phone", phone);
     if (error) throw new Error(`saveState(clear): ${error.message}`);

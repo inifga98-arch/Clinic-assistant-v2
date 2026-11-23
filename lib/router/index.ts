@@ -4,6 +4,7 @@ import type { Patient, Therapist } from "@/lib/db/types";
 import type { IncomingMessage } from "@/lib/agents/types";
 import { handleTherapistMessage } from "@/lib/agents/therapist";
 import { handlePatientMessage } from "@/lib/agents/patient";
+import { phoneVariants } from "@/lib/whatsapp/phone";
 import { normalizeText, sendText } from "@/lib/whatsapp/send";
 import { loadState, saveState } from "./state";
 
@@ -17,11 +18,13 @@ export type Sender =
 
 /** R-4: who is writing? A phone on an active therapist wins over a patient row. */
 export async function findSender(phone: string): Promise<Sender> {
+  const variants = phoneVariants(phone); // a hand-typed Mexican number may lack the "1"
   const { data: therapist, error: tErr } = await db()
     .from("therapists")
     .select("*")
-    .eq("phone", phone)
+    .in("phone", variants)
     .eq("active", true)
+    .limit(1)
     .maybeSingle<Therapist>();
   if (tErr) throw new Error(`findSender(therapist): ${tErr.message}`);
   if (therapist) return { role: "therapist", therapist };
@@ -29,7 +32,8 @@ export async function findSender(phone: string): Promise<Sender> {
   const { data: patient, error: pErr } = await db()
     .from("patients")
     .select("*")
-    .eq("phone", phone)
+    .in("phone", variants)
+    .limit(1)
     .maybeSingle<Patient>();
   if (pErr) throw new Error(`findSender(patient): ${pErr.message}`);
   if (patient) return { role: "patient", patient };

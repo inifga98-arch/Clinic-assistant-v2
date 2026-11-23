@@ -26,7 +26,7 @@ Status as of 23 Nov 2026. Tick items off in a PR as they're done.
 3. Join the Twilio Sandbox from your phone: send the join code (Twilio console → Messaging →
    Try it out → WhatsApp) to +1 415 523 8886. Rejoin if it stops answering.
 4. Add yourself as a therapist in Supabase (Table editor → `therapists`): your WhatsApp number
-   in E.164 without spaces (`+5255...`) and the email you'll use for the CRM, clinic
+   in E.164 without spaces (Mexican mobiles with the 1: `+52155...`) and the email you'll use for the CRM, clinic
    `00000000-0000-4000-8000-000000000001`.
 5. Check the setup: `npm run typecheck`, `npm run check`, then
    `npm run simulate -- --as <your name> "hola"`. You should see the therapist menu printed

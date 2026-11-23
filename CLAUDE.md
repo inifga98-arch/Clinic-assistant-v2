@@ -55,7 +55,10 @@ The contract between the router and the agents is `lib/agents/types.ts`
 - Server code writes with the service-role client (`lib/db/server.ts`), which bypasses RLS.
   Never import it in client components.
 - The CRM reads as the logged-in user, so RLS limits staff to their own clinic.
-- Phones are stored in E.164 without the `whatsapp:` prefix (`+525512345678`).
+- Phones are stored in E.164 without the `whatsapp:` prefix. Mexican mobiles keep WhatsApp's
+  "1" (`+5215512345678`): Twilio sends from that form and the Sandbox only replies to it.
+  Always pass numbers through `normalizePhone` (`lib/whatsapp/phone.ts`); lookups also
+  accept the form without the 1.
 
 ## Commands
 

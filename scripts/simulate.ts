@@ -148,9 +148,11 @@ async function loadPeople(): Promise<Person[]> {
   ]);
   if (therapists.error) throw new Error(`Could not read therapists: ${therapists.error.message}`);
   if (patients.error) throw new Error(`Could not read patients: ${patients.error.message}`);
+  // Normalise like the webhook does with Twilio's From, so a simulated message uses the same
+  // phone (and conversation state) as a real one, even if the row was typed by hand.
   return [
-    ...therapists.data.map((t) => ({ name: t.full_name as string, phone: t.phone as string, role: "therapist" as const })),
-    ...patients.data.map((p) => ({ name: p.full_name as string, phone: p.phone as string, role: "patient" as const })),
+    ...therapists.data.map((t) => ({ name: t.full_name as string, phone: normalizePhone(t.phone as string), role: "therapist" as const })),
+    ...patients.data.map((p) => ({ name: p.full_name as string, phone: normalizePhone(p.phone as string), role: "patient" as const })),
   ];
 }
 

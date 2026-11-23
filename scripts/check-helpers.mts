@@ -1,5 +1,5 @@
 // Quick self-check for the pure helpers (no network, no DB). Run: npm run check
-import { normalizePhone, toWhatsAppAddress } from "../lib/whatsapp/phone.ts";
+import { normalizePhone, phoneVariants, toWhatsAppAddress } from "../lib/whatsapp/phone.ts";
 import { SoapExtraction } from "../lib/ai/soap-schema.ts";
 import { detectRedFlags, isOptOut, painScoreIn } from "../lib/agents/patient/signals.ts";
 import {
@@ -18,12 +18,15 @@ function eq(actual: unknown, expected: unknown, label: string) {
   console.log(pass ? "ok  " : "FAIL", label, pass ? "" : `got ${JSON.stringify(actual)}`);
 }
 
-eq(normalizePhone("whatsapp:+5215512345678"), "+525512345678", "MX legacy +521 is stripped");
-eq(normalizePhone("whatsapp:+525512345678"), "+525512345678", "MX plain number kept");
+eq(normalizePhone("whatsapp:+5215512345678"), "+5215512345678", "MX mobile from WhatsApp keeps its 1");
+eq(normalizePhone("whatsapp:+525512345678"), "+5215512345678", "MX number without the 1 gets it");
+eq(normalizePhone("+52 55 1234 5678"), "+5215512345678", "spaces removed, 1 added");
+eq(normalizePhone("5215512345678"), "+5215512345678", "missing plus added");
 eq(normalizePhone("whatsapp:+16175551234"), "+16175551234", "US number kept");
-eq(normalizePhone("+52 55 1234 5678"), "+525512345678", "spaces removed");
-eq(normalizePhone("5215512345678"), "+525512345678", "missing plus added");
-eq(toWhatsAppAddress("+5215512345678"), "whatsapp:+525512345678", "Twilio address");
+eq(normalizePhone("+302101234567"), "+302101234567", "Greek number kept");
+eq(toWhatsAppAddress("+525512345678"), "whatsapp:+5215512345678", "Twilio address uses the 1 (Sandbox error 63015 otherwise)");
+eq(phoneVariants("+525512345678"), ["+5215512345678", "+525512345678"], "lookup tries both MX forms");
+eq(phoneVariants("whatsapp:+16175551234"), ["+16175551234"], "non-MX lookup has one form");
 
 const format = zodResponseFormat(SoapExtraction, "soap_note");
 eq(format.type, "json_schema", "SOAP schema converts to an OpenAI response format");
