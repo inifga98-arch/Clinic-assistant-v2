@@ -54,6 +54,45 @@ Nobody calls anyone else's code. Each workstream writes some tables and reads ot
 Real WhatsApp only reaches production: the Sandbox has one webhook. Test unmerged code in the
 simulator.
 
+### How often: pull when you start, push when you stop, merge when a small piece works
+
+| Action | What it does | When |
+| --- | --- | --- |
+| **Pull** | Brings everyone's latest merged work to your laptop | Every time you sit down to work, before starting anything; also after someone says they merged. On a branch, update it from `main` at least daily. |
+| **Push** | Backs up your branch to GitHub. It does not touch the live app. | Often, unfinished work included; at least at the end of every session |
+| **Merge** | Puts your branch into `main`, which goes live for everyone | When one small piece works (one feature per PR, e.g. "patient list", not "the whole CRM"), usually every day or two. Only on a green Vercel tick. Not right before a demo. |
+
+### How to do it: just ask Claude Code
+
+You don't need to type git commands. Ask Claude Code in plain words:
+
+| You want to | Say to Claude Code |
+| --- | --- |
+| Start the day | "Pull the latest changes from main." |
+| Start a new piece | "Create a branch called feature/patient-list from the latest main." |
+| Keep your branch current | "Update my branch with the latest main." |
+| Save and back up | "Commit my changes and push my branch." |
+| Hand it in | "Run typecheck, lint and check, then open a pull request for this branch." |
+| Check the build | "Is the Vercel check on my pull request green?" |
+| Go live | "Merge my pull request." (only once the tick is green) |
+
+Claude Code may ask your permission before pushing or merging; that's expected, approve it.
+Opening and merging pull requests from Claude Code uses the GitHub CLI (`gh`); if it isn't
+logged in, run `gh auth login` once in a terminal. You can also open and merge pull requests on
+github.com (the repo's **Pull requests** tab).
+
+If two people changed the same lines, git reports a conflict. Ask Claude Code to "resolve the
+conflict, keeping both changes", check the result, and tell the other person.
+
+Same thing in a terminal, inside the repo folder, if you prefer:
+
+    git pull                                  # start the day (on main)
+    git checkout -b feature/patient-list      # new piece of work
+    git add -A && git commit -m "..."         # save
+    git push -u origin feature/patient-list   # back up / share
+    gh pr create --fill                       # hand it in
+    gh pr merge --squash --delete-branch      # go live, once the tick is green
+
 **Shared risk:** one database and one WhatsApp number serve development and production. A bad
 merge breaks the demo for everyone, and test rows are real rows. Keep PRs small, merge only on a
 green build, and don't delete rows you didn't create.
