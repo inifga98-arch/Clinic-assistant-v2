@@ -3,9 +3,11 @@ import { normalizePhone, toWhatsAppAddress } from "../lib/whatsapp/phone.ts";
 import { SoapExtraction } from "../lib/ai/soap-schema.ts";
 import { detectRedFlags, isOptOut, painScoreIn } from "../lib/agents/patient/signals.ts";
 import {
-  describeExercise, formatTime, parseCheckinStatus, parseNumberList, parsePainReply, parseTime, parseYesNo,
+  describeExercise, formatTime, looksLikeActivity, parseCheckinStatus, parseDuration, parseNumberList, parseOnset,
+  parsePainReply, parseTime, parseYesNo,
 } from "../lib/agents/patient/parse.ts";
 import { clinicTimeToUtc, clinicToday } from "../lib/agents/patient/time.ts";
+import { ActivityExtraction } from "../lib/agents/patient/activity-schema.ts";
 import { zodResponseFormat } from "openai/helpers/zod";
 import twilio from "twilio";
 
@@ -140,6 +142,20 @@ eq(describeExercise({ name: "Sentadilla en pared", sets: 3, reps: null, hold_sec
 // Clinic time (America/Mexico_City, UTC-6).
 eq(clinicToday(new Date("2026-11-24T03:00:00Z")), { date: "2026-11-23", weekday: 1 }, "9 pm Monday in CDMX is still Monday");
 eq(clinicTimeToUtc("2026-11-23", "19:00:00").toISOString(), "2026-11-24T01:00:00.000Z", "7 pm CDMX = 01:00 UTC next day");
+
+// Activity log parsers (P-5).
+for (const t of ["fui a correr", "corrí 25 min", "caminé una hora", "subí escaleras", "fui al gym", "hice 5 km"]) eq(looksLikeActivity(t), true, `activity: "${t}"`);
+for (const t of ["hola", "hice mis ejercicios", "parar"]) eq(looksLikeActivity(t), false, `not activity: "${t}"`);
+const durationCases: Array<[string, number | null]> = [
+  ["25 min", 25], ["25 minutos", 25], ["1 hora", 60], ["1h 20", 80], ["2 horas", 120], ["media hora", 30],
+  ["hora y media", 90], ["1 hora y media", 90], ["45", 45], ["como 30", 30], ["5 km", null], ["no sé", null],
+];
+for (const [text, expected] of durationCases) eq(parseDuration(text), expected, `duration: "${text}"`);
+eq(parseOnset("a los 20 minutos"), 20, "onset a los 20 minutos");
+eq(parseOnset("en el minuto 15"), 15, "onset minuto 15");
+eq(parseOnset("desde el inicio"), 0, "onset desde el inicio");
+eq(parseOnset("10"), 10, "onset bare 10");
+eq(zodResponseFormat(ActivityExtraction, "activity_log").type, "json_schema", "activity schema converts to an OpenAI response format");
 
 if (failed) {
   console.log(`${failed} check(s) failed`);

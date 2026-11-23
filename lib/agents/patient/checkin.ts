@@ -22,7 +22,7 @@ export const STATUS_OPTIONS: Option[] = [
   { id: "checkin_none", title: "Hoy no" },
 ];
 
-interface CheckinContext {
+export interface CheckinContext {
   [key: string]: unknown;
   date: string;
   items: { id: string; label: string }[];
@@ -121,7 +121,7 @@ export async function handleCheckin(ctx: PatientContext): Promise<AgentResult> {
     const flags = detectRedFlags(reply, pain);
     if (flags.length > 0) {
       const summary = `Check-in de ejercicios: dolor ${pain}/10${comment ? `. ${comment}` : ""}`;
-      await handleRedFlag(patient, message.phone, summary, flags, pain);
+      await handleRedFlag(patient, message.phone, summary, flags, { pain });
       return { nextState: null };
     }
     await sendText(message.phone, "Gracias, lo anoté para tu terapeuta. ¡Sigue así!");
@@ -131,7 +131,8 @@ export async function handleCheckin(ctx: PatientContext): Promise<AgentResult> {
   return handleCheckin({ ...ctx, state: null });
 }
 
-async function freshContext(patient: Patient): Promise<CheckinContext> {
+/** Today's check-in context for a patient (also used by the reminder scheduler). */
+export async function freshContext(patient: Patient): Promise<CheckinContext> {
   const items = await todaysExercises(patient.id);
   return { date: clinicToday().date, items: items.map((i) => ({ id: i.id, label: describeExercise(i) })) };
 }
