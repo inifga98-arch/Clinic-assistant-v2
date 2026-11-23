@@ -5,6 +5,7 @@ import {
   QUESTIONS, isDoneWord, isSkipWord, mergeRevision, missingItems, nextQuestion, parsePainAnswer, toNoteColumns,
   toPlanItems, type NoteDraft,
 } from "../lib/agents/therapist/note-draft.ts";
+import { MAX_MESSAGE, formatAck, formatReview } from "../lib/agents/therapist/note-format.ts";
 
 let failed = 0;
 function eq(actual: unknown, expected: unknown, label: string) {
@@ -109,6 +110,26 @@ eq(cols.source_transcript, ["a", "b"].join("\n\n"), "columns: transcripts joined
 eq(cols.source_audio_url, "u2", "columns: first audio url");
 eq(cols.missing_fields, ["pain_nprs"], "columns: missing fields");
 eq(cols.pain_nprs, null, "columns: pain");
+
+// ---------------------------------------------------------------- Task 3: review formatting
+const review = formatReview({ patientName: "Ana López", date: "2026-11-23", note: sampleNote, missing: [], hasActivePlan: true });
+eq(review.length, 1, "review: short note is one message");
+eq(review[0].startsWith("*Ana López* · 23 nov 2026"), true, "review: header with es-MX date");
+eq(review[0].includes("Plan en casa (reemplaza el actual):" + "\n" + " 1. Elevación de pierna recta 3×12, diario"), true, "review: plan list");
+eq(formatReview({ patientName: "Ana López", date: "2026-11-23", note: sampleNote, missing: [], hasActivePlan: false })[0]
+  .includes("Plan en casa (nuevo):"), true, "review: new plan header when none active");
+const keep: SoapExtraction = { ...sampleNote, plan: { ...sampleNote.plan, home_exercises: [], keep_current_plan: true } };
+eq(formatReview({ patientName: "Ana López", date: "2026-11-23", note: keep, missing: [], hasActivePlan: false })[0]
+  .includes("Plan en casa: sin cambios (no hay plan activo)"), true, "review: no changes, no active plan");
+eq(formatReview({ patientName: "Ana López", date: "2026-11-23", note: keep, missing: [], hasActivePlan: true })[0]
+  .includes("Plan en casa: sin cambios"), true, "review: no changes, keeps active plan");
+eq(formatReview({ patientName: "Ana López", date: "2026-11-23", note: sampleNote, missing: ["pain_nprs"], hasActivePlan: true })[0]
+  .includes("Falta: escala de dolor"), true, "review: gaps listed");
+const long: SoapExtraction = { ...sampleNote, subjective: { ...sampleNote.subjective, summary: "palabra ".repeat(400) } };
+const parts = formatReview({ patientName: "Ana López", date: "2026-11-23", note: long, missing: [], hasActivePlan: true });
+eq(parts.length > 1 && parts.every((p) => p.length <= MAX_MESSAGE - 60), true, "review: long note split, each part fits with options");
+eq(parts.join("").includes("Elevación de pierna recta"), true, "review: nothing lost when split");
+eq(formatAck("Ana López", 2), "Anotado para Ana López (nota 2).", "ack text");
 
 if (failed) {
   console.log(`${failed} check(s) failed`);
