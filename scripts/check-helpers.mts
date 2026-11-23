@@ -1,6 +1,7 @@
 // Quick self-check for the pure helpers (no network, no DB). Run: node scripts/check-helpers.mts
 import { normalizePhone, toWhatsAppAddress } from "../lib/whatsapp/phone.ts";
 import { SoapExtraction } from "../lib/ai/soap-schema.ts";
+import { detectRedFlags, isOptOut, painScoreIn } from "../lib/agents/patient/signals.ts";
 import { zodResponseFormat } from "openai/helpers/zod";
 import twilio from "twilio";
 
@@ -41,6 +42,43 @@ const params = { From: "whatsapp:+5215512345678", Body: "hola", MessageSid: "SM1
 const signature = twilio.getExpectedTwilioSignature(token, url, params);
 eq(twilio.validateRequest(token, signature, url, params), true, "Twilio signature accepted");
 eq(twilio.validateRequest(token, signature, url, { ...params, Body: "x" }), false, "tampered body rejected");
+
+// Patient opt-out (P-8): whole-message only.
+for (const t of ["parar", "Parar.", "PARA", "stop", "¡Basta!", "darme de baja", "No más recordatorios"]) {
+  eq(isOptOut(t), true, `opt-out: "${t}"`);
+}
+for (const t of ["para la rodilla hice 3 series", "cancelar", "menu", "ya no me duele", "hola"]) {
+  eq(isOptOut(t), false, `not opt-out: "${t}"`);
+}
+
+// Patient red flags (P-6).
+const flagCases: Array<[string, string[]]> = [
+  ["me duele muchísimo, dolor 9", ["severe_pain"]],
+  ["fui a correr y el dolor fue de 8/10", ["severe_pain"]],
+  ["tengo la rodilla muy hinchada", ["swelling"]],
+  ["se me hinchó el tobillo", ["swelling"]],
+  ["siento hormigueo en el pie", ["numbness"]],
+  ["no siento la pierna", ["numbness"]],
+  ["creo que tengo fiebre", ["fever"]],
+  ["¡Me caí en las escaleras!", ["fall"]],
+  ["estoy mucho peor que la semana pasada", ["much_worse"]],
+  ["no puedo apoyar el pie", ["cant_bear_weight"]],
+  ["me caí y ahora está hinchado, dolor 8 de 10", ["severe_pain", "swelling", "fall"]],
+];
+for (const [text, expected] of flagCases) eq(detectRedFlags(text).sort(), [...expected].sort(), `red flag: "${text}"`);
+const noFlagCases = [
+  "hice mis ejercicios, dolor 3",
+  "corrí 25 minutos, dolor 5/10",
+  "dolor 2 después de 10 minutos",
+  "no tengo fiebre ni hinchazón",
+  "sin hinchazón, todo bien",
+  "no me caí, solo me cansé",
+  "parar",
+];
+for (const text of noFlagCases) eq(detectRedFlags(text), [], `no red flag: "${text}"`);
+eq(detectRedFlags("hice 2 de 3 ejercicios", 9), ["severe_pain"], "structured pain score 9 flags");
+eq(painScoreIn("corrí 30 min, dolor de 6, luego 7/10"), 7, "highest pain score found");
+eq(painScoreIn("corrí 30 minutos"), null, "no pain score");
 
 if (failed) {
   console.log(`${failed} check(s) failed`);
