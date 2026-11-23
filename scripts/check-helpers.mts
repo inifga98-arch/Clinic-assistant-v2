@@ -37,10 +37,12 @@ const sample = {
   plan: {
     visits_per_week: 2,
     next_session_focus: null,
-    home_exercises: [{ name: "SLR", sets: 3, reps: 12, hold_seconds: null, frequency_per_week: 7 }],
+    keep_current_plan: false,
+    home_exercises: [
+      { name: "SLR", sets: 3, reps: 12, hold_seconds: null, frequency_per_week: 7, days_of_week: null, instructions: null },
+    ],
     activities: [],
   },
-  missing_required: [],
 };
 eq(SoapExtraction.safeParse(sample).success, true, "valid SOAP sample parses");
 eq(SoapExtraction.safeParse({ ...sample, subjective: { ...sample.subjective, pain_nprs: 11 } }).success, false, "pain 11 rejected");

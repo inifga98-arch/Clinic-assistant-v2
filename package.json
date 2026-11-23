@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "check": "node --no-warnings --import tsx scripts/check-helpers.mts",
+    "check": "node --no-warnings --import tsx scripts/check-helpers.mts && node --no-warnings --import tsx scripts/check-flow-b.mts",
     "simulate": "node --conditions=react-server --env-file=.env.local --import tsx scripts/simulate.ts",
     "reminders": "node --conditions=react-server --env-file=.env.local --import tsx scripts/run-reminders.ts"
   },
