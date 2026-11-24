@@ -2,7 +2,7 @@
 import { zodResponseFormat } from "openai/helpers/zod";
 import { SoapExtraction, SoapRevision } from "../lib/ai/soap-schema.ts";
 import {
-  QUESTIONS, cleanExtraction, isDoneWord, isSkipWord, mergeRevision, missingItems, nextQuestion, parsePainAnswer, toNoteColumns,
+  QUESTIONS, cleanExtraction, describePlanItem, planHeadline, isDoneWord, isSkipWord, mergeRevision, missingItems, nextQuestion, parsePainAnswer, toNoteColumns,
   toPlanItems, type NoteDraft,
 } from "../lib/agents/therapist/note-draft.ts";
 import { MAX_MESSAGE, formatAck, formatReview } from "../lib/agents/therapist/note-format.ts";
@@ -160,6 +160,15 @@ eq(cleanExtraction({ ...sampleNote, plan: { ...sampleNote.plan, keep_current_pla
   "clean: a dictated list beats 'sin cambios'");
 eq(cleanExtraction({ ...sampleNote, plan: { ...sampleNote.plan, keep_current_plan: true, home_exercises: [] } }).plan.keep_current_plan,
   true, "clean: 'sin cambios' with no list stays");
+
+// ---------------------------------------------------------------- Task 8: fixes from simulator runs
+eq(names(matchPatients("ana", [refs[1], refs[0]])), ["Ana López", "Ana Martínez"], "match: results sorted by name");
+eq(planHeadline({ ...sampleNote, plan: { ...sampleNote.plan, visits_per_week: 1 } }), "1 visita/semana.", "headline: singular visit");
+eq(describePlanItem({ type: "exercise", name: "equilibrio unipodal", sets: 3, reps: null, hold_seconds: 30,
+  frequency_per_week: 7, days_of_week: null, instructions: null }), "Equilibrio unipodal 3×30 s, diario", "plan line: capitalised");
+eq(formatReview({ patientName: "V", date: "2026-11-23", hasActivePlan: false, missing: [],
+  note: { ...sampleNote, subjective: { ...sampleNote.subjective, summary: "Refiere dolor 2 de 10.", pain_nprs: 2 } } })[0]
+  .includes("Dolor 2/10"), false, "review: pain not repeated when the summary says 'N de 10'");
 
 if (failed) {
   console.log(`${failed} check(s) failed`);

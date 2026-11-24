@@ -22,10 +22,12 @@ export function matchPatients(query: string, patients: PatientRef[]): PatientRef
   if (!q.length) return [];
   const exact = patients.filter((p) => normalize(p.full_name) === q.join(" "));
   if (exact.length) return exact;
-  return patients.filter((p) => {
-    const name = tokens(p.full_name);
-    return q.every((w) => name.some((n) => n === w || (w.length >= 4 && n.length >= 4 && editDistance(w, n) <= 1)));
-  });
+  return patients
+    .filter((p) => {
+      const name = tokens(p.full_name);
+      return q.every((w) => name.some((n) => n === w || (w.length >= 4 && n.length >= 4 && editDistance(w, n) <= 1)));
+    })
+    .sort((a, b) => a.full_name.localeCompare(b.full_name, "es"));
 }
 
 /**

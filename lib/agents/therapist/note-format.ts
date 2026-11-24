@@ -49,7 +49,7 @@ export function formatReview({ patientName, date, note, missing, hasActivePlan }
   const s = note.subjective;
   const subjective = [
     s.summary.trim(),
-    s.pain_nprs !== null && !s.summary.includes(`${s.pain_nprs}/10`) ? `Dolor ${s.pain_nprs}/10.` : "",
+    s.pain_nprs !== null && !mentionsPain(s.summary, s.pain_nprs) ? `Dolor ${s.pain_nprs}/10.` : "",
     s.aggravating.length ? `Agrava: ${s.aggravating.join(", ")}.` : "",
     s.functional_limits.length ? `Limitaciones: ${s.functional_limits.join(", ")}.` : "",
   ].filter(Boolean).join(" ");
@@ -80,6 +80,11 @@ export function formatReview({ patientName, date, note, missing, hasActivePlan }
   if (missing.length) blocks.push(`Falta: ${missing.map((m) => MISSING_LABELS[m]).join(", ")}`);
 
   return pack(blocks, MAX_MESSAGE - OPTIONS_ROOM);
+}
+
+/** Does the summary already state this pain score ("3/10", "3 de 10")? */
+function mentionsPain(summary: string, pain: number): boolean {
+  return new RegExp(String.raw`(^|\D)${pain}\s*(/|de)\s*10(\D|$)`).test(summary);
 }
 
 /** Greedy packing of blocks into messages of at most `limit` characters. */

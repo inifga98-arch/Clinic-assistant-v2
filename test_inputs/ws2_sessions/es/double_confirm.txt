@@ -1,0 +1,1 @@
+# Two "Confirmar" taps arriving at the same moment. Not pipeable: run the README steps.

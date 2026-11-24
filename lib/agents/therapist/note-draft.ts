@@ -277,7 +277,8 @@ export function toPlanItems(x: SoapExtraction): PlanItemInput[] {
 
 /** One plan line: "Elevación de pierna recta 3×12, diario", "Correr, 2×/semana (20 min; reportar dolor)". */
 export function describePlanItem(item: PlanItemInput): string {
-  const base = item.type === "exercise" ? describeExercise(item) : item.name;
+  const name = item.name.charAt(0).toUpperCase() + item.name.slice(1);
+  const base = item.type === "exercise" ? describeExercise({ ...item, name }) : name;
   const freq = item.frequency_per_week === 7 ? "diario" : item.frequency_per_week ? `${item.frequency_per_week}×/semana` : "";
   const text = freq ? `${base}, ${freq}` : base;
   return item.instructions ? `${text} (${item.instructions})` : text;
@@ -286,7 +287,8 @@ export function describePlanItem(item: PlanItemInput): string {
 /** "2 visitas/semana. Próxima sesión: fuerza de cuádriceps." (empty when neither was said). */
 export function planHeadline(x: SoapExtraction): string {
   const parts: string[] = [];
-  if (x.plan.visits_per_week) parts.push(`${x.plan.visits_per_week} visitas/semana.`);
+  const visits = x.plan.visits_per_week;
+  if (visits) parts.push(`${visits} ${visits === 1 ? "visita" : "visitas"}/semana.`);
   if (x.plan.next_session_focus) parts.push(`Próxima sesión: ${x.plan.next_session_focus}.`);
   return parts.join(" ");
 }
