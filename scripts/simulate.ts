@@ -4,6 +4,7 @@
 //   npm run simulate -- --as marina "hola"             one message as Marina, then exit
 //   npm run simulate -- --as cherub                    interactive chat as Cherub
 //   npm run simulate -- --as inigo --audio test_inputs/ws2_sessions/audio/s1_clean_vn1.mp3
+//   npm run simulate -- --as inigo --image test_inputs/ws1_intake/forms/mi_p1.jpg   a photo
 //   npm run simulate -- --as inigo --reset             forget where that person is in a flow
 //
 // Uses the shared Supabase database from .env.local (real rows, real conversation state).
@@ -20,7 +21,7 @@ import { db } from "@/lib/db/server";
 import { processIncoming } from "@/lib/router";
 import { recordIncoming } from "@/lib/router/inbox";
 import { saveState } from "@/lib/router/state";
-import { allowLocalMedia, audioTypeForPath } from "@/lib/whatsapp/media";
+import { allowLocalMedia, mediaTypeForPath } from "@/lib/whatsapp/media";
 import { normalizePhone } from "@/lib/whatsapp/phone";
 import { normalizeText, setTransport } from "@/lib/whatsapp/send";
 
@@ -32,6 +33,7 @@ interface Person {
 
 const HELP = `Interactive commands:
   /audio <file>   send a voice note (mp3, ogg, m4a, wav)
+  /image <file>   send a photo (jpg, png)
   /as <name>      switch person
   /reset          forget where this person is in a flow
   /list           show everyone you can be
@@ -72,8 +74,8 @@ async function main() {
     console.log(`Cleared the conversation state for ${person.name}.`);
   }
 
-  if (args.audio || args.message) {
-    await send(person, args.message ?? "", args.audio);
+  if (args.audio || args.image || args.message) {
+    await send(person, args.message ?? "", args.audio ?? args.image);
     return;
   }
   if (args.reset) return;
@@ -111,7 +113,7 @@ async function main() {
         } catch (err) {
           console.log(`  ${(err as Error).message}`);
         }
-      } else if (line.startsWith("/audio ")) {
+      } else if (line.startsWith("/audio ") || line.startsWith("/image ")) {
         await send(person, "", line.slice(7).trim()).catch((err) => console.log(`  ${(err as Error).message}`));
       } else if (line.startsWith("/")) console.log(`  Unknown command. ${HELP}`);
       else await send(person, line);
@@ -122,12 +124,12 @@ async function main() {
   }
 }
 
-async function send(person: Person, body: string, audioPath?: string) {
+async function send(person: Person, body: string, mediaPath?: string) {
   const media = [];
-  if (audioPath) {
-    const path = resolve(audioPath);
-    if (!existsSync(path)) throw new Error(`No such audio file: ${audioPath}`);
-    media.push({ url: pathToFileURL(path).href, contentType: audioTypeForPath(path) });
+  if (mediaPath) {
+    const path = resolve(mediaPath);
+    if (!existsSync(path)) throw new Error(`No such file: ${mediaPath}`);
+    media.push({ url: pathToFileURL(path).href, contentType: mediaTypeForPath(path) });
   }
   const message: IncomingMessage = {
     sid: `SIM${randomUUID().replace(/-/g, "")}`,
@@ -181,6 +183,7 @@ function printPeople(people: Person[]) {
 interface Args {
   as?: string;
   audio?: string;
+  image?: string;
   message?: string;
   list: boolean;
   reset: boolean;
@@ -194,21 +197,26 @@ function parseArgs(argv: string[]): Args {
     const a = argv[i];
     if (a === "--as") args.as = argv[++i];
     else if (a === "--audio") args.audio = argv[++i];
+    else if (a === "--image") args.image = argv[++i];
     else if (a === "--list") args.list = true;
     else if (a === "--reset") args.reset = true;
     else if (a === "--help" || a === "-h") args.help = true;
     else if (a.startsWith("--")) throw new Error(`Unknown option ${a}. Try --help.`);
     else words.push(a);
   }
-  if ((args.as === undefined && argv.includes("--as")) || (args.audio === undefined && argv.includes("--audio"))) {
-    throw new Error("--as and --audio need a value.");
+  if (
+    (args.as === undefined && argv.includes("--as")) ||
+    (args.audio === undefined && argv.includes("--audio")) ||
+    (args.image === undefined && argv.includes("--image"))
+  ) {
+    throw new Error("--as, --audio and --image need a value.");
   }
   if (words.length) args.message = words.join(" ");
   return args;
 }
 
 function header() {
-  return "Bitácora WhatsApp simulator: npm run simulate -- --as <name|phone> [message] [--audio file] [--reset] [--list]";
+  return "Bitácora WhatsApp simulator: npm run simulate -- --as <name|phone> [message] [--audio file] [--image file] [--reset] [--list]";
 }
 
 function indent(text: string) {

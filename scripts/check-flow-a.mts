@@ -11,6 +11,7 @@ import {
   evalVoiceGuide, formatEvaluationReview, formatPageAck, formatRegistrationCard,
 } from "../lib/agents/therapist/intake-format.ts";
 import { MAX_MESSAGE } from "../lib/agents/therapist/note-format.ts";
+import { mediaTypeForPath } from "../lib/whatsapp/media-types.ts";
 
 let failed = 0;
 function eq(actual: unknown, expected: unknown, label: string) {
@@ -170,6 +171,12 @@ eq(REGISTRATION_PROMPT.length < 600 && REGISTRATION_PROMPT.includes("*nombre com
 eq(PHOTO_PROMPT.includes("*Plan de tratamiento*"), true, "photo prompt names the last page");
 eq(evalVoiceGuide("Laura Méndez").includes("*Plan de tratamiento:*"), true, "voice guide follows the form");
 eq(formatPageAck(2), "📷 Recibí la página 2. ¿Hay más páginas?", "page ack");
+
+// ---------------------------------------------------------------- Task 5: media types
+eq(mediaTypeForPath("forma.JPG"), "image/jpeg", "media: jpg");
+eq(mediaTypeForPath("forma.png"), "image/png", "media: png");
+eq(mediaTypeForPath("nota.ogg"), "audio/ogg", "media: audio still works");
+eq(mediaTypeForPath("x.pdf"), "application/octet-stream", "media: unknown");
 
 if (failed) {
   console.log(`${failed} check(s) failed`);
