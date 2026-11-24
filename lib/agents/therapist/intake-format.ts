@@ -71,9 +71,10 @@ export function formatRegistrationCard(
   r: { full_name: string; phone: string; reason: string | null },
   sameName?: { full_name: string; dob: string | null },
 ): string {
-  const lines = [`🆕 *${r.full_name}*`, `📱 ${displayPhone(r.phone)}`];
-  if (r.reason?.trim()) lines.push(`🩺 Motivo: ${r.reason.trim()}`);
-  lines.push("👤 Terapeuta: tú");
+  // Data lines stay plain: icons belong on the options only (docs/conversation-design.md).
+  const lines = ["*Información del paciente*", `Nombre: ${r.full_name}`, `WhatsApp: ${displayPhone(r.phone)}`];
+  if (r.reason?.trim()) lines.push(`Motivo: ${r.reason.trim()}`);
+  lines.push("Terapeuta: tú");
   if (sameName) {
     const born = sameName.dob ? ` (nac. ${dmy(sameName.dob)})` : "";
     lines.push("", `⚠️ Ya existe *${sameName.full_name}*${born}. Si es otra persona, guárdala igual.`);

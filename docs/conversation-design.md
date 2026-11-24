@@ -42,6 +42,19 @@ Use the same icon for the same meaning everywhere:
 
 One icon per option, no decoration inside sentences. Emojis are signposts, not mood.
 
+Information blocks (a card to confirm, a summary) have a bold title and plain `Label: value`
+lines, with no icons; the icons go on the options below them:
+
+```
+*Información del paciente*
+Nombre: Laura Méndez
+WhatsApp: +52 55 1234 5678
+Terapeuta: tú
+
+1. ✅ Guardar
+2. ✏️ Corregir
+```
+
 ## 2. Show what you understood before it counts
 
 Voice transcription and AI extraction make mistakes. Before anything is saved, show the person

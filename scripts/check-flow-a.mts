@@ -141,8 +141,8 @@ eq(displayPhone("+16172597932"), "+16172597932", "display: other");
 
 // ---------------------------------------------------------------- Task 4: messages
 const card = formatRegistrationCard({ full_name: "Laura Méndez", phone: "+5215512345678", reason: "rodilla derecha" });
-eq(card.includes("🆕 *Laura Méndez*") && card.includes("📱 +52 55 1234 5678") && card.includes("🩺 Motivo: rodilla derecha"), true,
-  "card: name, display phone, reason");
+eq(card, ["*Información del paciente*", "Nombre: Laura Méndez", "WhatsApp: +52 55 1234 5678", "Motivo: rodilla derecha", "Terapeuta: tú"].join("\n"),
+  "card: titled block, plain lines, no emojis");
 eq(formatRegistrationCard({ full_name: "Laura Méndez", phone: "+5215512345678", reason: null }).includes("Motivo"), false,
   "card: no reason line when none");
 eq(formatRegistrationCard({ full_name: "Laura Méndez", phone: "+5215512345678", reason: null },
