@@ -60,6 +60,11 @@ const done = (): AgentResult => ({ nextState: null });
 // ---------------------------------------------------------------- entry points
 
 /** "Nota de sesión" from the menu: offer an open draft first, otherwise the patient picker. */
+/** Start a note straight for a known patient (Flow A hands over here after a duplicate number). */
+export async function startSessionNoteFor(ctx: TherapistContext, patient: PatientRef): Promise<AgentResult> {
+  return beginDraft(ctx.message.phone, ctx.therapist, patient);
+}
+
 export async function startSessionNote(ctx: TherapistContext): Promise<AgentResult> {
   const open = await latestDraft(ctx.therapist.id);
   if (open) {
@@ -553,7 +558,7 @@ async function lost(phone: string): Promise<AgentResult> {
 }
 
 /** The message as a note: the transcript of a voice note, or the typed text. Null if audio failed. */
-async function noteFrom(message: IncomingMessage): Promise<TranscriptEntry | null> {
+export async function noteFrom(message: IncomingMessage): Promise<TranscriptEntry | null> {
   const audio = message.media.find((m) => m.contentType.startsWith("audio/"));
   const entry = (text: string, audio_url: string | null): TranscriptEntry => ({
     text,
