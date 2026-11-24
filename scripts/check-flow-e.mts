@@ -63,9 +63,9 @@ const al = activityLines(acts);
 eq(al.lines, [
   "correr 25 min, dolor 5/10 frente de la rodilla desde el min 20",
   "subir escaleras, dolor 2/10",
-  "correr 10 min, dolor 8/10 rodilla",
-], "activities: newest three, compact");
-eq(al.more, 2, "activities: count beyond three");
+  "caminar 40 min, sin dolor",
+], "activities: newest three, compact (red flags only in the alert)");
+eq(al.more, 1, "activities: count beyond three");
 eq(al.flags, ["correr 10 min, dolor 8/10 rodilla: la rodilla se inflamó y no puede apoyar"], "activities: red flags listed apart");
 eq(activityLines([]).lines, [], "activities: none");
 
@@ -133,6 +133,9 @@ eq(brief.split("\n"), [
   "*Sugerencia para hoy:* revalorar fuerza de cuádriceps; bajar la sentadilla en pared; hablar del volumen de carrera.",
 ], "brief: the spec's layout");
 eq(words(brief) <= 120, true, `brief: under 120 words (${words(brief)})`);
+
+const capitals = formatPrepBrief(full, { lastSession: null, suggestions: ["Revalorar fuerza", "TENS si hay dolor", "Bajar la sentadilla."] });
+eq(capitals.includes("*Sugerencia para hoy:* revalorar fuerza; TENS si hay dolor; bajar la sentadilla."), true, "brief: suggestions read as one sentence (acronyms kept)");
 
 const noAi = formatPrepBrief(full, { lastSession: null, suggestions: [] });
 eq(noAi.includes("*Última sesión (20 nov):* dolor 3/10. Próxima sesión: fuerza de cuádriceps."), true, "brief without AI: last session falls back to pain and the agreed focus");

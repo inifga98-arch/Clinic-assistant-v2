@@ -36,6 +36,10 @@ workflow), `docs/handoff/` (what changed for each workstream).
 - **Corrections can't silently change anything else.** A revise call returns the whole object
   plus the paths it changed; `mergeRevision` (`note-draft.ts`) reverts every other difference.
   Reuse it for anything the user corrects in plain words.
+- **When the AI writes text (a brief, a summary), code renders the facts and checks the rest.**
+  Flow E's brief: numbers, dates and adherence come from code; the model gets numbered facts,
+  must cite them, and `groundedLine` / `groundedSuggestions` (`prep-logic.ts`) drop any line
+  that cites nothing or contains a number not in the facts. If the call fails, the facts still go.
 - **Drafts live in the database, not in the conversation.** The conversation state expires
   after 30 minutes; a draft row (`status = 'draft'`, working data in a `draft` jsonb column)
   survives, so the user can resume. Confirmed rows are locked by a trigger; corrections after
@@ -113,13 +117,14 @@ confirmed rows: `sessions.status = 'confirmed'`, `initial_evaluations.status = '
 
 | What | How |
 | --- | --- |
-| Pure logic | `npm run check` (`scripts/check-helpers.mts`, `check-flow-b.mts`, `check-flow-a.mts`) |
+| Pure logic | `npm run check` (`scripts/check-helpers.mts`, `check-flow-b.mts`, `check-flow-a.mts`, `check-flow-e.mts`) |
 | A conversation | `npm run simulate -- --as "terapeuta simulador"` (or a test patient); scripts in `test_inputs/ws1_intake/es/`, `test_inputs/ws2_sessions/es/` |
 | Voice notes | `--audio file`; synthetic audio made with OpenAI TTS, committed next to the scripts |
 | Photos | `--image file`; synthetic forms in `test_inputs/ws1_intake/forms/` (`scripts/make-test-forms.py`) |
 | Things at the same moment | several simulate commands in parallel |
 | A migration | the rolled-back check script, locally or in the SQL editor |
 | The AI calls | `scripts/try-soap.ts`, `scripts/try-intake.ts` (real OpenAI key) |
+| Patient logs for a brief | `npm run seed-prep` (test patients only; `--flag` adds a red flag) |
 
 Saving in a test writes permanent, locked rows: use the test patients (Lucía Prueba Uno,
 Laura Méndez Ruiz, Carlos Méndez, Valeria Soto), never Ana López (the CRM and the patient agent

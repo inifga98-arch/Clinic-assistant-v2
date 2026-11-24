@@ -130,7 +130,9 @@ export function formatPrepBrief(d: PrepData, ai: PrepAi): string {
   }
   if (d.activities.flags.length) lines.push(`⚠️ *Alerta:* ${sentence(d.activities.flags.join("; "))}`);
   if (ai.suggestions.length) {
-    lines.push(`*Sugerencia para hoy:* ${sentence(ai.suggestions.map((s) => s.trim().replace(/[.;]+$/, "")).join("; "))}`);
+    // One sentence: "revalorar …; bajar …". Lowercase a leading capital unless it starts an acronym (TENS).
+    const items = ai.suggestions.map((s) => s.trim().replace(/[.;]+$/, "").replace(/^\p{Lu}(?=\p{Ll})/u, (c) => c.toLowerCase()));
+    lines.push(`*Sugerencia para hoy:* ${sentence(items.join("; "))}`);
   }
   return lines.join("\n");
 }

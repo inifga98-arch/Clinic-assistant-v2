@@ -32,8 +32,8 @@ clinical record it can search, hand over and print.
 ## Status
 
 - Therapist agent: Flow A (new patient + initial evaluation from photos of the clinic's form or
-  voice) and Flow B (session note + home plan) are live on WhatsApp. Flows E (prep) and F
-  (handoff) are next.
+  voice), Flow B (session note + home plan) and Flow E (session prep brief) are live on
+  WhatsApp. Flow F (handoff) is next.
 - Patient agent: consent, check-ins, activity logs, red flags and opt-out are built; templates,
   the reminder schedule and patient self-completion of details are next
   ([docs/handoff/cherub.md](docs/handoff/cherub.md)).

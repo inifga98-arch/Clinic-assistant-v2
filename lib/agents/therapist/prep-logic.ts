@@ -99,12 +99,16 @@ export function describeActivity(a: ActivityLogLite): string {
   return s;
 }
 
-/** The newest `max` activities, how many more there are, and every red-flag log with its words. */
+/**
+ * The newest `max` activities, how many more there are, and every red-flag log with its words.
+ * Red-flag logs are listed only in `flags` (the brief's ⚠️ line), not twice.
+ */
 export function activityLines(logs: ActivityLogLite[], max = 3): { lines: string[]; more: number; flags: string[] } {
   const newest = [...logs].sort((a, b) => b.logged_at.localeCompare(a.logged_at));
+  const plain = newest.filter((a) => !a.red_flag);
   return {
-    lines: newest.slice(0, max).map(describeActivity),
-    more: Math.max(0, newest.length - max),
+    lines: plain.slice(0, max).map(describeActivity),
+    more: Math.max(0, plain.length - max),
     flags: newest
       .filter((a) => a.red_flag)
       .map((a) => (a.comment?.trim() ? `${describeActivity(a)}: ${a.comment.trim()}` : describeActivity(a))),
