@@ -21,6 +21,7 @@ never Ana López, whose data the CRM and patient agent build against).
 | `name_in_note.txt` | Note sent before picking a patient | "¿La nota es de Valeria Soto?" |
 | `discard.txt` | Descartar | "No se guardó nada", no draft row left |
 | `resume.txt` | Draft survives a reset | Resume offer on "Nota de sesión", Continuar works |
+| `review_fixes.txt` | Notes before the name, "Sí, pero…" correction, empty edit | Both notes kept; correction applied (not saved); back to review; discarded |
 
 Not pipeable (two messages at the same instant), run by hand once the state is right:
 
