@@ -1,12 +1,13 @@
 import "server-only";
 import type { AgentResult, TherapistContext } from "@/lib/agents/types";
 import { matchOption, normalizeText, sendOptions, sendText, type Option } from "@/lib/whatsapp/send";
+import { handleSessionNote, startSessionNote } from "./session-note";
 
 // Therapist agent. Owner: Person 1. Flows A (new patient), B (session note + plan),
 // E (prep a session), F (handoff). See docs/prd.md "Happy flows" and "Therapist agent".
 //
-// Skeleton only: shows the menu (T-1) and acknowledges the choice. Each flow replaces its
-// placeholder below with a real state machine (one file per flow in this folder).
+// Shows the menu (T-1) and hands each choice to its flow (one file per flow in this folder).
+// Built: Flow B (session-note.ts). Still placeholders: A, E, F.
 
 export const MENU: Option[] = [
   { id: "new_patient", title: "Nuevo paciente" },
@@ -33,13 +34,15 @@ export async function handleTherapistMessage(ctx: TherapistContext): Promise<Age
       await sendOptions(message.phone, intro, MENU);
       return { nextState: state };
     }
-    // TODO(Person 1): start the chosen flow instead of this placeholder.
+    if (choice.id === "session_note") return startSessionNote(ctx);
+    // TODO(Person 1): flows A, E and F.
     await sendText(message.phone, `«${choice.title}» todavía está en construcción.`);
     return { nextState: null };
   }
 
+  if (state?.flow === "session_note") return handleSessionNote(ctx);
+
   if (state) {
-    // TODO(Person 1): dispatch to the flow in state.flow.
     await sendText(message.phone, "Ese paso todavía está en construcción. Escribe *menu* para empezar de nuevo.");
     return { nextState: null };
   }
