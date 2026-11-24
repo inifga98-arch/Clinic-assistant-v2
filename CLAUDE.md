@@ -8,6 +8,9 @@ it can hand over and print. The spec is `docs/prd.md`. Read it before building a
 
 - All user-facing copy in Mexican Spanish (es-MX). Code, comments and docs in English.
 - Ease of use beats features. One question per message. Quick replies over typing.
+- Every WhatsApp message follows `docs/conversation-design.md`: numbered options with an
+  icon, echo what was understood (voice transcripts, extracted data) with a way to correct it,
+  say what a good answer looks like, never a dead end. Flow B is the reference.
 - Follow WhatsApp agent best practices: ack the webhook fast, process async, dedupe by
   MessageSid, validate Twilio signatures, respect the 24h window and opt-outs ("parar").
 - Menus, patient selection and confirmations are a deterministic state machine. Use the LLM
