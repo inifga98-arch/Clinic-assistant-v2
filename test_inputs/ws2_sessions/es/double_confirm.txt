@@ -1,1 +1,1 @@
-# Two "Confirmar" taps arriving at the same moment. Not pipeable: run the README steps.
+# Two Confirmar taps at the same instant at the review. See README.md (not pipeable).

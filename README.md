@@ -14,8 +14,8 @@ clinical record it can search, hand over and print.
 1. `npm install`
 2. Copy `.env.example` to `.env.local` and fill in the keys (get them from the password
    manager, never from chat).
-3. Create the database: in the Supabase SQL editor run `supabase/migrations/0001_init.sql`,
-   then `supabase/seed.sql`. (With the Supabase CLI and a local stack: `supabase init`, then
+3. Create the database: in the Supabase SQL editor run the files in `supabase/migrations/` in
+   order (`0001_init.sql`, `0002_flow_b.sql`), then `supabase/seed.sql`. (With the Supabase CLI and a local stack: `supabase init`, then
    `supabase db reset` applies the migrations and the seed.)
 4. Put your own WhatsApp number on a therapist row in the seed (see the comment at the top of
    `supabase/seed.sql`) so the router recognises you.

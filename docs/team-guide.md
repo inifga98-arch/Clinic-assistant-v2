@@ -14,7 +14,7 @@ Status as of 24 Nov 2026. Read with `CLAUDE.md` (rules, folder ownership) and `d
 | --- | --- | --- |
 | Patient agent (Cherub) | P-1 consent, P-3/P-4 check-ins, P-5 activity logs (incl. voice), P-6 red flags, P-8 opt-out, P-2 reminder code | A schedule that calls `/api/cron/reminders` (Vercel Hobby cron runs at most once a day); approved Twilio templates; P-7 forward questions to the therapist; P-9 pause after missed reminders; red-flag alert outside the therapist's 24 h window |
 | CRM (Marina) | Nothing yet | All of it (order below) |
-| Therapist agent (Iñigo) | Menu, SOAP + plan schema, transcription | Flows B, A, E, F |
+| Therapist agent (Iñigo) | Menu, Flow B (session note + home plan) | Flows A, E, F |
 
 ## The database is the contract
 
@@ -28,8 +28,11 @@ Nobody calls anyone else's code. Each workstream writes some tables and reads ot
 
 - **Don't wait for each other.** The seed patient **Ana López** already has 2 confirmed notes, an
   active plan with 3 items, 6 exercise logs and a run with knee pain. Build against her.
-- **Flow B is the critical path**: it produces the plans reminders run on and the notes the
-  CRM shows. Iñigo builds it first.
+- **`sessions` holds drafts.** Flow B saves a note as `status = 'draft'` while the therapist
+  records it, and `'confirmed'` once they tap Confirmar (then it is locked). **The CRM and any
+  brief must show only `status = 'confirmed'`.** The `draft` column is working data; ignore it.
+- **New plans come from Flow B.** Confirming a note with home exercises supersedes the active
+  plan and creates a new one with its `plan_items`; "sin cambios" keeps the current plan.
 - **Shared files** (`lib/agents/types.ts`, `lib/db/types.ts`, `lib/whatsapp/send.ts`,
   `lib/router/`, `supabase/migrations/`): change them in a small separate PR and tell the others.
 - **Schema changes**: a new file in `supabase/migrations/` inside the PR. Production uses the
@@ -123,6 +126,8 @@ with the service-role key. A login only sees data if its email matches an active
      rights on the Meta Business portfolio.
    - Twilio user roles: if your Developer role can't create senders, ask Iñigo to raise it to
      Administrator for this step.
+   - The clinic owns the Meta Business account: register the sender under the clinic's
+     business portfolio, not a personal one.
    - Display name: something Meta accepts for a clinic service (e.g. "Bitácora"); the real
      clinic's name needs proof it is theirs.
    - When it's approved: set `TWILIO_WHATSAPP_FROM` (Vercel and `.env.local`) to the new
@@ -145,8 +150,8 @@ reminders and replies stay inside the 24 h window.
 
 ## Iñigo: next steps
 
-1. Flow B: voice note to SOAP note and structured plan, follow-up questions, confirm, lock,
-   supersede the old plan, create `plan_items`.
+1. Flow B: built (design in `docs/superpowers/specs/2026-11-23-flow-b-design.md`, simulator
+   scripts in `test_inputs/ws2_sessions/es/`).
 2. Flow A, then E and F.
 
 ## Access (done 24 Nov 2026)

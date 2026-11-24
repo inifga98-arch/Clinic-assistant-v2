@@ -1,1 +1,1 @@
-# Two notes arriving at the same moment during recording. Not pipeable: run the README steps.
+# Two notes at the same instant during recording. See README.md (not pipeable).
