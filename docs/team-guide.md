@@ -120,6 +120,9 @@ Follows the PRD's P0 requirements first:
 Read data as the logged-in user so the access rules apply (see `app/(crm)/README.md`), never
 with the service-role key. A login only sees data if its email matches an active therapist row.
 
+**Before you start: read `docs/handoff/marina.md`** (what the agents now write: confirmed-only
+notes, the initial evaluation section, plans, synthetic rows) and `docs/how-we-build.md`.
+
 ## Cherub: next steps
 
 1. **Register Bitácora's own WhatsApp sender** (start now: Meta's checks take days). The Sandbox
@@ -150,16 +153,9 @@ with the service-role key. A login only sees data if its email matches an active
    then add `CRON_SECRET` in Vercel.
 4. P-7 forward questions to the therapist, P-9 pause after missed reminders, and the red-flag
    alert to the therapist outside their 24 h window (needs a template too).
-5. **Bring the patient flow up to `docs/conversation-design.md`** (Flow B is the reference;
-   test with the simulator as a patient, e.g. `npm run simulate -- --as "ana lopez"`):
-   - Icons on every option list (`icon` field on `Option`): menu 💪 Mis ejercicios de hoy /
-     🏃 Una actividad; check-in ✅ Todos / 🟡 Algunos / ❌ Hoy no; consent ✅ Acepto /
-     ❌ No acepto; reminders ⏰ for the time options.
-   - Voice activity logs: echo the transcription before saving ("🎙️ Esto entendí: «…»") with
-     a ✏️ Corregir option, and show the summary that will be saved.
-   - Tell the patient what to send: for an activity, *qué hiciste, cuánto tiempo y si te dolió
-     (0 a 10)*, with an example.
-   - Encouraging tone after a check-in or log ("¡Bien hecho! 💪"), never clinical advice.
+5. **Bring the patient flow up to the shared design** and **build patient self-completion of
+   details** (Flow A, piece 2): the full spec and the list of what changed for you are in
+   **`docs/handoff/cherub.md`**. Read `docs/how-we-build.md` first.
 
 Demo until the sender exists: the patient messages first (check-in or activity log), so
 reminders and replies stay inside the 24 h window.

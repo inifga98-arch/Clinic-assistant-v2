@@ -4,11 +4,15 @@ A WhatsApp agent and simple CRM for physical therapy clinics in Mexico. Therapis
 session with a voice note; patients log homework and pain between visits; the clinic gets one
 clinical record it can search, hand over and print.
 
+- **Start here before building: [docs/how-we-build.md](docs/how-we-build.md)** (process, patterns, lessons)
 - Spec: [docs/prd.md](docs/prd.md)
 - Build rules and folder ownership: [CLAUDE.md](CLAUDE.md)
 - Accounts, keys and onboarding status: [docs/setup-checklist.md](docs/setup-checklist.md)
 - Who builds what, and how to build, test and deploy: [docs/team-guide.md](docs/team-guide.md)
 - How the agents talk on WhatsApp (icons, confirmations, tone): [docs/conversation-design.md](docs/conversation-design.md)
+- What changed for each workstream: [Cherub, patient agent](docs/handoff/cherub.md) ·
+  [Marina, CRM](docs/handoff/marina.md)
+- Designs and plans of the built flows: [docs/superpowers/](docs/superpowers/)
 
 ## Setup
 
@@ -27,8 +31,12 @@ clinical record it can search, hand over and print.
 
 ## Status
 
-Phase 0/1 skeleton: schema + seed, shared types, webhook with signature check, dedupe, sender
-lookup and conversation state, agent stubs. The flows themselves are the next build steps
-(see the Build plan in the PRD).
+- Therapist agent: Flow A (new patient + initial evaluation from photos of the clinic's form or
+  voice) and Flow B (session note + home plan) are live on WhatsApp. Flows E (prep) and F
+  (handoff) are next.
+- Patient agent: consent, check-ins, activity logs, red flags and opt-out are built; templates,
+  the reminder schedule and patient self-completion of details are next
+  ([docs/handoff/cherub.md](docs/handoff/cherub.md)).
+- CRM: not started; what to show is in [docs/handoff/marina.md](docs/handoff/marina.md).
 
 All patient data is synthetic.

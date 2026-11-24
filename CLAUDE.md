@@ -4,6 +4,27 @@ WhatsApp agent + CRM for physical therapy clinics in Mexico. Therapists record e
 voice note; patients log homework and pain between visits; the clinic gets a searchable record
 it can hand over and print. The spec is `docs/prd.md`. Read it before building a feature.
 
+## Before you build anything
+
+Read `docs/how-we-build.md`: the process, the patterns to reuse and the lessons from building
+Flows A and B. Then the handoff for your workstream in `docs/handoff/` and
+`docs/conversation-design.md` for anything a user sees. The rules that matter most:
+
+- Design first (what and why, approaches, the pick), then a plan; specs in
+  `docs/superpowers/specs/`. Test first; pure logic in files without `server-only`, checked by
+  `npm run check`. A fresh review of the whole branch before merging; fix findings test-first.
+- The code drives every conversation; the AI only transcribes, extracts into a schema and
+  applies one correction at a time (`mergeRevision` keeps everything else as it was).
+- Nothing reaches the record without an explicit confirm; only a whole-message "sí" confirms.
+- Drafts live in the database, confirmed rows are locked; anything that shows clinical data
+  filters `status = 'confirmed'`.
+- WhatsApp messages arrive in parallel (a photo multi-select is several messages at once):
+  create drafts before they can arrive, append atomically, detect late arrivals.
+- The AI invents when it can't read: show what was understood before saving, keep "Niega"
+  apart from empty, and never guess numbers or dates.
+- Simulate as Terapeuta Simulador or a test patient, never as a teammate who may be on WhatsApp.
+- No form photos kept; synthetic data only; additive migrations run before merging.
+
 ## Product rules
 
 - All user-facing copy in Mexican Spanish (es-MX). Code, comments and docs in English.
