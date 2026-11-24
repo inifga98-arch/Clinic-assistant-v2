@@ -49,8 +49,8 @@ therapist retyping the form.
   newest confirmed one is the current one.
 - Using the evaluation in session prep (Flow E) or showing it in the CRM (Marina): both read the
   new table later.
-- Matching the clinic's exact questionnaire. We haven't seen it yet; the sections follow
-  NOM-004 and can be tuned once Iñigo sends a photo of a blank or synthetic form.
+- The discharge section, the SOAP log pages and the extra sheets of the clinic's forms (see
+  Schema).
 
 ## Anti-goals
 
@@ -156,7 +156,9 @@ Bitácora:  🩺 *Valoración inicial · Laura Méndez*
 ```
 
 - Pages arriving together are appended atomically (same pattern as Flow B's transcripts) and
-  acknowledged with the running page count. Up to 5 pages.
+  acknowledged with the running page count. Up to 6 pages. The first message asks for the pages
+  up to the treatment plan ("las hojas hasta *Plan de tratamiento*; no hace falta la de
+  consentimiento ni la bitácora").
 - Reading: one Structured Outputs call with all page images (base64 from `downloadMedia`) and
   the schema below. The prompt says: read only what is written; a field crossed out or marked
   "niega/negado/ninguno" is a stated "none"; unreadable or blank is null and listed in
@@ -174,12 +176,13 @@ Same as Flow B's recording: a guide first, then one or more voice/text notes, ea
 ✏️ Corregir, then ✅ Listo → extraction from the transcripts → the same review.
 
 ```
-🩺 Valoración inicial de *Laura Méndez*. Cuéntame en este orden:
-💬 *Motivo y padecimiento actual:* qué le pasa, desde cuándo, cómo empezó.
-📚 *Antecedentes:* enfermedades, cirugías, alergias, medicamentos, familiares.
-🔍 *Exploración:* dolor (0 a 10), arcos, fuerza, pruebas, marcha o postura.
-🧠 *Diagnóstico fisioterapéutico* y pronóstico.
-🎯 *Objetivos y plan:* metas, sesiones por semana, tratamiento.
+🩺 Valoración inicial de *Laura Méndez*. Sigue el orden de la historia clínica:
+💬 *Motivo y mecanismo de lesión*, y el dolor: inicio, dónde, tipo, intensidad (0 a 10), irradiación.
+📚 *Antecedentes:* heredofamiliares, no patológicos (actividad física), patológicos
+   (alergias, cirugías, trauma, enfermedades, medicamentos).
+🔍 *Exploración:* postura, marcha, goniometría, fuerza, pruebas ortopédicas.
+🧠 *Impresión diagnóstica* y *diagnóstico fisioterapéutico*.
+🎯 *Plan de tratamiento:* objetivos e indicaciones.
 ```
 
 ### Review, corrections, confirm
@@ -190,36 +193,69 @@ plain words is applied by a revise call that declares the paths it changed, and
 ✅ Confirmar confirms. There are no follow-up questions: gaps are listed and the therapist can add them by Corregir
 or save as is. Photo path: "No se pudo leer: …" from `unreadable`. Voice path, and the photo path
 too when they are empty: "Falta: …" lists only the core items, `chief_complaint`,
-`exam.pain_nprs`, a diagnosis (`pt_diagnosis` or `medical_diagnosis`), and a plan (`goals` or
-`treatment_plan.interventions`). Other empty sections are simply not shown. *(Builder-check call.)*
+`pain.intensity_nprs`, a diagnosis (`pt_diagnosis` or `diagnostic_impression`), and a plan
+(`treatment_plan.goals` or `treatment_plan.instructions`). Other empty sections are simply not shown. *(Builder-check call.)*
 
 On confirm, one database function, atomically:
 - marks the evaluation `confirmed` (locked by trigger, like sessions);
-- fills **empty** patient fields only: `diagnosis` = `medical_diagnosis`, or `pt_diagnosis` when
-  there is no medical one (the seed and referrals use the medical wording, which is what the
-  CRM header and picker show); `referring_doctor`; `dob`; `sex`. *(Builder-check call.)*
+- fills **empty** patient fields only: `diagnosis` = `diagnostic_impression`, or `pt_diagnosis`
+  when there is none (the seed uses the medical wording, which is what the CRM header shows);
+  `referring_doctor` = "name (specialty)"; `dob`; `sex`. Occupation, marital status and the
+  emergency contact stay in the evaluation (the patient table has no columns for them). *(Builder-check call.)*
 
-### Schema (Structured Outputs; keys in English, content in es-MX)
+### Schema: the clinic's "Historia Clínica" (Structured Outputs; keys in English, content in es-MX)
 
-Every key present; unknown = null or []. Stated-none uses the literal string "Niega".
+The clinic (Balan-C) uses three paper forms, *Historia Clínica MS* (miembro superior), *MI*
+(miembro inferior) and *Columna*, with the same sections. Only the goniometry joints and the
+list of orthopedic tests change by region. The title printed on the form tells the region. The
+extraction follows the form section by section, so a therapist can compare the review with the
+paper line by line. Every key present; unknown = null or []. A field marked "niega", "negado",
+"ninguno" or crossed out is the literal string "Niega" (stated none), never null.
 
 ```
-identification: { dob: "YYYY-MM-DD"|null, sex: "female"|"male"|"other"|null,
-                  occupation, referring_doctor }                      // all nullable
-chief_complaint: string|null                     // motivo de consulta
-current_condition: { onset, mechanism, evolution, aggravating: [], relieving: [] }
-history: { illnesses, surgeries, trauma, allergies, medications, transfusions,
-           family_history, lifestyle }            // each string|null; "Niega" when denied
-exam: { pain_nprs: 0–10|null, pain_location, rom: [{joint, movement, degrees}],
-        strength: [{muscle, grade_0_5}], special_tests: [], posture_gait, other_findings }
-studies: string|null                             // imaging, labs
-medical_diagnosis: string|null                   // from the referral
-pt_diagnosis: string|null                        // diagnóstico fisioterapéutico
-prognosis: string|null
-goals: string[]
-treatment_plan: { visits_per_week: int|null, total_sessions: int|null, interventions: [] }
-unreadable: string[]                             // photo path: sections present but illegible
+form_region: "upper_limb" | "lower_limb" | "spine" | null     // from "HISTORIA CLÍNICA MS/MI/Columna"
+form_date: "YYYY-MM-DD"|null, performed_by: string|null       // "Fecha", "Realizó"
+
+identification: {                                             // ficha de identificación
+  full_name, age: int|null, dob: "YYYY-MM-DD"|null, occupation,
+  sex: "female"|"male"|null, marital_status, fall_risk,
+  physician: { name, specialty, phone },                      // "Médico / Especialidad / Tel"
+  emergency_contact: { name, relationship, phone } }
+
+family_history: [ { condition, relatives: ["hermanos"|"madre"|"padre"|"abuelos"] } ]   // AHF grid:
+   // cáncer, diabetes, HTA, cardiopatías, infartos/ACV, enf. reumáticas, artrosis/otros
+non_pathological: { substance_use, activity_type, activity_frequency, activity_hours_daily }  // APNP
+pathological: { allergies, transfusions, surgeries, orthopedic_surgeries, trauma,
+                illnesses, medications_supplements }                                        // APP
+vital_signs: { temperature, blood_pressure, respiratory_rate, spo2, heart_rate }            // strings as written
+
+chief_complaint: string|null                                  // "Motivo de la consulta"
+injury_mechanism: string|null                                 // "Mecanismo de lesión"
+pain: { onset, location, type, intensity_nprs: 0–10|null, radiation, modifiers }  // semiología del dolor
+
+exam: {
+  posture, gait, observations,
+  goniometry: [ { joint, movement, right, left } ],           // e.g. rodilla / flexión / "110°" / "135°"
+  strength_mrc: [ { muscle_or_movement, right: 0–5|null, left: 0–5|null } ],
+  orthopedic_tests: [ { test, right: "positiva"|"negativa"|"dolorosa"|null, left: same } ],
+  complementary_tests, sensation, reflexes,
+  spasm_location,
+  surgical_scar: { location, features: ["queloide"|"retráctil"|"abierta"|"con adherencias"|"hipertrófica"] },
+  edema: { location, type, characteristics, godet_sign } }
+
+auxiliary_studies: string|null                                // "Estudios auxiliares"
+diagnostic_impression: string|null                            // "Impresión diagnóstica" (medical)
+pt_diagnosis: string|null                                     // "Diagnóstico fisioterapéutico"
+treatment_plan: { goals: string[], instructions: string[] }   // "Plan de tratamiento: objetivos / indicaciones"
+
+unreadable: string[]                                          // photo path: sections written but illegible
 ```
+
+Not extracted at intake: "Evaluación final / datos de alta" (discharge, filled at the end), the
+"Bitácora de sesiones" SOAP log pages (those notes come through Flow B), and the consent page
+(the signed paper stays the legal consent; the patient's WhatsApp privacy consent is separate).
+The extra sheets in the clinic's folder (valoración sensitiva y reflejos, escala Downton,
+revaloración) are later work.
 
 ### Data (migration `0003_initial_evaluations.sql`, additive)
 
@@ -269,8 +305,10 @@ rolled-back check script, as with `0002`.
 - Pure checks (`npm run check`): registration parsing and phone normalisation (10 digits,
   `+52 1`, foreign `+1…`, too short), duplicate decisions, card and review formatting with
   the 1,600 split, "Niega" vs null rendering, the merge guarantee on the evaluation schema.
-- Synthetic form images: build a fake filled-in form (made-up patient) as an image, one and
-  two pages, plus a deliberately blurry one. Commit them under `test_inputs/ws1_intake/forms/`.
+- Synthetic form images: fill the clinic's blank *Historia Clínica MI* (and one *MS*) with a
+  made-up patient, as photos of 2–3 pages, plus a deliberately blurry page. Commit them under
+  `test_inputs/ws1_intake/forms/`. The blank templates are in the clinic's Drive folder; never
+  commit a real patient's form.
 - Simulator scripts in `test_inputs/ws1_intake/es/`: register by text and by voice, missing
   number, duplicate number, same name, Corregir; evaluation by photo (1 and 2 pages), by
   voice, a correction, Descartar, ⏭️ Después then menu 🩺.
