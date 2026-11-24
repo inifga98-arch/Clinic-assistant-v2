@@ -144,6 +144,16 @@ with the service-role key. A login only sees data if its email matches an active
    then add `CRON_SECRET` in Vercel.
 4. P-7 forward questions to the therapist, P-9 pause after missed reminders, and the red-flag
    alert to the therapist outside their 24 h window (needs a template too).
+5. **Bring the patient flow up to `docs/conversation-design.md`** (Flow B is the reference;
+   test with the simulator as a patient, e.g. `npm run simulate -- --as "ana lopez"`):
+   - Icons on every option list (`icon` field on `Option`): menu 💪 Mis ejercicios de hoy /
+     🏃 Una actividad; check-in ✅ Todos / 🟡 Algunos / ❌ Hoy no; consent ✅ Acepto /
+     ❌ No acepto; reminders ⏰ for the time options.
+   - Voice activity logs: echo the transcription before saving ("🎙️ Esto entendí: «…»") with
+     a ✏️ Corregir option, and show the summary that will be saved.
+   - Tell the patient what to send: for an activity, *qué hiciste, cuánto tiempo y si te dolió
+     (0 a 10)*, with an example.
+   - Encouraging tone after a check-in or log ("¡Bien hecho! 💪"), never clinical advice.
 
 Demo until the sender exists: the patient messages first (check-in or activity log), so
 reminders and replies stay inside the 24 h window.

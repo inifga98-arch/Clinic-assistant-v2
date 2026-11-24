@@ -8,6 +8,7 @@ clinical record it can search, hand over and print.
 - Build rules and folder ownership: [CLAUDE.md](CLAUDE.md)
 - Accounts, keys and onboarding status: [docs/setup-checklist.md](docs/setup-checklist.md)
 - Who builds what, and how to build, test and deploy: [docs/team-guide.md](docs/team-guide.md)
+- How the agents talk on WhatsApp (icons, confirmations, tone): [docs/conversation-design.md](docs/conversation-design.md)
 
 ## Setup
 
