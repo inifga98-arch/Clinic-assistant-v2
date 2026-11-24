@@ -1,0 +1,10 @@
+/reset
+hola
+5
+Laura Méndez Ruiz
+1
+/image test_inputs/ws1_intake/forms/mi_p1.jpg
+/image test_inputs/ws1_intake/forms/mi_p2.jpg
+/image test_inputs/ws1_intake/forms/mi_p3.jpg
+listo
+3

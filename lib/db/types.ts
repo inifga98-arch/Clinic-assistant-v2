@@ -42,6 +42,8 @@ export interface Patient {
   reminder_time: string | null; // HH:MM:SS, clinic local time
   consent_at: Timestamp | null;
   reminders_opt_in: boolean;
+  /** Short reason the therapist gave at registration (Flow A); not a diagnosis. */
+  intake_reason: string | null;
   created_at: Timestamp;
 }
 
@@ -158,5 +160,20 @@ export interface MessageRow {
   body: string | null;
   media_url: string | null;
   media_type: string | null;
+  created_at: Timestamp;
+}
+
+/** The clinic's Historia Clínica as structured data (Flow A). Show only status "confirmed". */
+export interface InitialEvaluation {
+  id: Uuid;
+  patient_id: Uuid;
+  therapist_id: Uuid;
+  source: "photo" | "voice" | null;
+  status: "draft" | "confirmed";
+  confirmed_at: Timestamp | null;
+  data: Record<string, unknown> | null; // EvaluationExtraction (lib/ai/intake-schema.ts)
+  draft: Record<string, unknown> | null; // working state while open (lib/agents/therapist/eval-store.ts)
+  source_transcript: string | null;
+  page_count: number | null;
   created_at: Timestamp;
 }

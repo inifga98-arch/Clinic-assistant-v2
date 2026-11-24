@@ -8,7 +8,7 @@ import { MISSING_LABELS, describePlanItem, planHeadline, toPlanItems, type Missi
 /** Twilio's cap for one WhatsApp message body. */
 export const MAX_MESSAGE = 1600;
 /** Room left in the last message for the numbered options. */
-const OPTIONS_ROOM = 60;
+export const OPTIONS_ROOM = 60;
 
 export const REVIEW_OPTIONS: Option[] = [
   { id: "confirm", title: "Confirmar", icon: "✅" },
@@ -127,7 +127,7 @@ function mentionsPain(summary: string, pain: number): boolean {
 }
 
 /** Greedy packing of blocks into messages of at most `limit` characters. */
-function pack(blocks: string[], limit: number): string[] {
+export function pack(blocks: string[], limit: number): string[] {
   const pieces = blocks.flatMap((b) => cut(b, limit));
   const out: string[] = [];
   let current = "";

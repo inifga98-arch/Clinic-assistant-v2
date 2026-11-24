@@ -162,13 +162,13 @@ function startsWith(path: Seg[], prefix: Seg[]): boolean {
  * the value from `before`, so a correction cannot silently rewrite text the therapist already
  * approved. Items in plan lists are matched by name, so removing one keeps the others intact.
  */
-export function mergeRevision(
-  before: SoapExtraction,
-  after: SoapExtraction,
+export function mergeRevision<T extends object>(
+  before: T,
+  after: T,
   changed: string[],
-): { note: SoapExtraction; applied: boolean } {
+): { note: T; applied: boolean } {
   const declared = changed.map(parsePath).filter((p) => p.length > 0);
-  const note = mergeValue(before, after, [], declared) as SoapExtraction;
+  const note = mergeValue(before, after, [], declared) as T;
   return { note, applied: JSON.stringify(note) !== JSON.stringify(before) };
 }
 

@@ -1,0 +1,9 @@
+/reset
+hola
+5
+Lucía Prueba
+2
+/audio test_inputs/ws1_intake/es/audio/valoracion_lucia.mp3
+listo
+la flexión de rodilla derecha fue 125
+3

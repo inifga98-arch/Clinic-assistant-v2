@@ -1,0 +1,7 @@
+/reset
+hola
+5
+Lucía Prueba
+/image test_inputs/ws1_intake/forms/mi_p1_borrosa.jpg
+listo
+3

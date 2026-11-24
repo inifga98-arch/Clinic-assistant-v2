@@ -1,0 +1,5 @@
+/reset
+hola
+5
+Lucía Prueba
+3
