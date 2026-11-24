@@ -32,6 +32,8 @@ export interface NoteDraft {
   skipped: MissingItem[];
   asking: MissingItem | null;
   step: SessionNoteStep;
+  /** How many transcripts the current extraction was built from (unset before the first). */
+  extracted_count?: number;
 }
 
 export const EMPTY_DRAFT: NoteDraft = {
@@ -105,6 +107,21 @@ const SKIP_WORDS = new Set(
   ["omitir", "omite", "saltar", "salta", "no se", "no lo se", "no lo tengo", "sin dato", "no tengo el dato"].map(normalize),
 );
 
+const CONFIRM_WORDS = new Set(
+  ["si", "ok", "okay", "confirmo", "confirmar", "confirmado", "si confirmo", "guardala", "guardar", "si guardala"].map(normalize),
+);
+
+/** A whole-message yes at the review. "Sí, pero la flexión fue 120" is a correction, not a yes. */
+export function isConfirmWord(text: string): boolean {
+  return CONFIRM_WORDS.has(normalize(text));
+}
+
+/** Notes that arrived after the current extraction was made (they are not in the SOAP yet). */
+export function lateNotes(d: NoteDraft): TranscriptEntry[] {
+  if (d.extracted_count === undefined) return [];
+  return d.transcripts.slice(d.extracted_count);
+}
+
 /** "Listo" / "eso es todo": the whole message, so "listo para correr" is a note, not a close. */
 export function isDoneWord(text: string): boolean {
   return DONE_WORDS.has(normalize(text));
@@ -168,43 +185,55 @@ function mergeValue(b: unknown, a: unknown, path: Seg[], declared: Seg[][]): unk
 }
 
 function mergeArray(b: unknown[], a: unknown[], path: Seg[], declared: Seg[][]): unknown[] {
-  const touched = (i: number) => declared.some((d) => startsWith(d, [...path, i]));
+  // Plan items are matched by name, other lists (ROM, strength, tests) by their whole value,
+  // so removing one item does not shift or duplicate the ones after it.
   const named = b.concat(a).every((x) => isObject(x) && typeof x.name === "string");
+  const key = (x: unknown) => (named ? normalize((x as { name: string }).name) : JSON.stringify(x));
+  const at = (i: number): Seg[] => [...path, i];
+  const touched = (i: number) => declared.some((d) => startsWith(d, at(i)));
+  const whole = (i: number) => declared.some((d) => d.length === path.length + 1 && startsWith(d, at(i)));
+  const itemDecls = declared.filter((d) => d.length === path.length + 1 && startsWith(d, path));
+  const additions = itemDecls.filter((d) => typeof d[path.length] === "number" && (d[path.length] as number) >= b.length).length;
 
-  if (!named) {
-    // Lists without names (ROM, strength, tests): match by position.
-    const out: unknown[] = [];
-    for (let i = 0; i < Math.max(a.length, b.length); i++) {
-      const v = touched(i) ? (i < b.length && i < a.length ? mergeValue(b[i], a[i], [...path, i], declared) : a[i]) : b[i];
-      if (v !== undefined) out.push(v);
+  const matchOf = new Map<number, number>();
+  const usedA = new Set<number>();
+  b.forEach((item, i) => {
+    const j = a.findIndex((x, k) => !usedA.has(k) && key(x) === key(item));
+    if (j >= 0) {
+      usedA.add(j);
+      matchOf.set(i, j);
     }
-    return out;
-  }
+  });
+  const freeA = a.map((_, j) => j).filter((j) => !usedA.has(j));
+  let removals = Math.max(0, b.length + additions - a.length);
 
-  // Plan items: match by name so a removal does not shift the items after it.
-  const key = (x: unknown) => normalize((x as { name: string }).name);
-  const used = new Set<number>();
   const out: unknown[] = [];
   b.forEach((item, i) => {
-    if (!touched(i)) {
-      out.push(item);
-      const same = a.findIndex((x, j) => !used.has(j) && key(x) === key(item));
-      if (same >= 0) used.add(same);
+    const j = matchOf.get(i);
+    if (j !== undefined) {
+      out.push(touched(i) ? mergeValue(item, a[j], at(i), declared) : item);
       return;
     }
-    const same = a.findIndex((x, j) => !used.has(j) && key(x) === key(item));
-    if (same >= 0) {
-      used.add(same);
-      out.push(mergeValue(item, a[same], [...path, i], declared));
-    } else if (a.length >= b.length && i < a.length && !used.has(i)) {
-      used.add(i); // renamed in place
-      out.push(a[i]);
-    } // otherwise removed
+    if (!touched(i)) {
+      out.push(item); // changed or dropped without being declared: keep the approved value
+      return;
+    }
+    if (whole(i) && removals > 0) {
+      removals--; // declared removal
+      return;
+    }
+    // Declared change to an item whose value changed: its counterpart is at the same position
+    // when free, otherwise the next unmatched item.
+    const k = freeA.includes(i) ? i : freeA[0];
+    if (k === undefined) {
+      out.push(item);
+      return;
+    }
+    freeA.splice(freeA.indexOf(k), 1);
+    out.push(mergeValue(item, a[k], at(i), declared));
   });
-  a.forEach((item, j) => {
-    // A new item counts only if its own index was declared.
-    if (!used.has(j) && !b.some((x) => key(x) === key(item)) && touched(j) && j >= b.length) out.push(item);
-  });
+  // Declared additions: the last unmatched items the model returned.
+  if (additions > 0) out.push(...freeA.slice(-additions).map((j) => a[j]));
   return out;
 }
 

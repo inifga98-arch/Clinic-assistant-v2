@@ -2,7 +2,7 @@
 import { zodResponseFormat } from "openai/helpers/zod";
 import { SoapExtraction, SoapRevision } from "../lib/ai/soap-schema.ts";
 import {
-  QUESTIONS, cleanExtraction, describePlanItem, planHeadline, isDoneWord, isSkipWord, mergeRevision, missingItems, nextQuestion, parsePainAnswer, toNoteColumns,
+  QUESTIONS, cleanExtraction, describePlanItem, isConfirmWord, lateNotes, planHeadline, isDoneWord, isSkipWord, mergeRevision, missingItems, nextQuestion, parsePainAnswer, toNoteColumns,
   toPlanItems, type NoteDraft,
 } from "../lib/agents/therapist/note-draft.ts";
 import { MAX_MESSAGE, formatAck, formatReview } from "../lib/agents/therapist/note-format.ts";
@@ -169,6 +169,39 @@ eq(describePlanItem({ type: "exercise", name: "equilibrio unipodal", sets: 3, re
 eq(formatReview({ patientName: "V", date: "2026-11-23", hasActivePlan: false, missing: [],
   note: { ...sampleNote, subjective: { ...sampleNote.subjective, summary: "Refiere dolor 2 de 10.", pain_nprs: 2 } } })[0]
   .includes("Dolor 2/10"), false, "review: pain not repeated when the summary says 'N de 10'");
+
+// ---------------------------------------------------------------- final review fixes
+// Finding 1: only a whole-message yes confirms at the review.
+for (const t of ["sí", "Si", "ok", "Confirmo", "confirmar", "sí, guárdala"]) eq(isConfirmWord(t), true, `confirm word: ${t}`);
+for (const t of ["Sí, pero la flexión fue 120", "Si quita la sentadilla", "si cambia el dolor a 4", "simón"])
+  eq(isConfirmWord(t), false, `not a confirm: ${t}`);
+// Finding 2: removals and additions in lists.
+const withTests = (tests: string[]): SoapExtraction =>
+  ({ ...sampleNote, objective: { ...sampleNote.objective, special_tests: tests } });
+eq(mergeRevision(withTests(["Lachman", "McMurray", "Cajón"]), withTests(["McMurray", "Cajón"]),
+  ["objective.special_tests[0]"]).note.objective.special_tests, ["McMurray", "Cajón"], "merge: remove first unnamed item");
+eq(mergeRevision(withTests(["A", "B", "C"]), withTests(["B", "C", "D"]),
+  ["objective.special_tests[0]", "objective.special_tests[3]"]).note.objective.special_tests, ["B", "C", "D"],
+  "merge: remove one and add one (unnamed)");
+eq(mergeRevision(withTests(["A", "B", "C"]), withTests(["B", "C reescrito"]),
+  ["objective.special_tests[0]"]).note.objective.special_tests, ["B", "C"], "merge: removal does not let an undeclared rewrite in");
+const ex = (name: string) => ({ ...sampleNote.plan.home_exercises[0], name });
+const withEx = (names: string[]): SoapExtraction => ({ ...sampleNote, plan: { ...sampleNote.plan, home_exercises: names.map(ex) } });
+eq(mergeRevision(withEx(["A", "B", "C"]), withEx(["B", "C", "D"]), ["plan.home_exercises[0]", "plan.home_exercises[3]"])
+  .note.plan.home_exercises.map((e) => e.name), ["B", "C", "D"], "merge: remove one and add one (plan items)");
+eq(mergeRevision(withEx(["A", "B"]), withEx(["B"]), ["plan.home_exercises[0]"]).note.plan.home_exercises.map((e) => e.name),
+  ["B"], "merge: remove first of two plan items");
+eq(mergeRevision(withEx(["A", "B"]), withEx(["A", "Z"]), ["plan.home_exercises[1]"]).note.plan.home_exercises.map((e) => e.name),
+  ["A", "Z"], "merge: replace an item in place");
+const rom = (deg: number): SoapExtraction => ({ ...sampleNote, objective: { ...sampleNote.objective,
+  rom: [{ joint: "rodilla", movement: "flexión", degrees: deg }, { joint: "rodilla", movement: "extensión", degrees: -3 }] } });
+eq(mergeRevision(rom(115), rom(120), ["objective.rom[0].degrees"]).note.objective.rom.map((r) => r.degrees), [120, -3],
+  "merge: change a field inside an unnamed item");
+// Finding 4: notes that arrived after the extraction.
+const t3 = [1, 2, 3].map((i) => ({ text: `n${i}`, audio_url: null, received_at: `2026-11-23T10:0${i}:00Z` }));
+eq(lateNotes({ ...d, transcripts: t3, extracted_count: 2 }).map((t) => t.text), ["n3"], "late notes: the one after extraction");
+eq(lateNotes({ ...d, transcripts: t3, extracted_count: 3 }), [], "late notes: none");
+eq(lateNotes({ ...d, transcripts: t3 }), [], "late notes: none when never counted");
 
 if (failed) {
   console.log(`${failed} check(s) failed`);

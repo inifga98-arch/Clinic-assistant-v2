@@ -41,6 +41,13 @@ export async function loadDraft(sessionId: string): Promise<LoadedDraft | null> 
   };
 }
 
+/** "draft", "confirmed", or null when the session no longer exists (discarded). */
+export async function draftStatus(sessionId: string): Promise<"draft" | "confirmed" | null> {
+  const { data, error } = await db().from("sessions").select("status").eq("id", sessionId).maybeSingle();
+  if (error) throw new Error(`notes: could not read status: ${error.message}`);
+  return (data?.status as "draft" | "confirmed" | undefined) ?? null;
+}
+
 /** Add one note; returns how many the draft has now. Safe when two notes arrive at once. */
 export async function appendTranscript(sessionId: string, entry: TranscriptEntry): Promise<number> {
   const { data, error } = await db().rpc("append_session_transcript", { p_session_id: sessionId, p_entry: entry });
