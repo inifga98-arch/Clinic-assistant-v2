@@ -22,7 +22,9 @@ export async function writePrepBrief(facts: string[]): Promise<PrepBriefAi> {
       { role: "user", content: numberedFacts(facts) },
     ],
     response_format: zodResponseFormat(PrepBriefSchema, "prep_brief"),
-  });
+  // Its own short limit: after a transcription, the shared 45 s × 2 would pass the webhook's
+  // 60 s and the facts-only fallback would never be sent.
+  }, { timeout: 15_000, maxRetries: 0 });
   const parsed = completion.choices[0]?.message.parsed;
   if (!parsed) throw new Error("prep: no parse");
   return parsed;

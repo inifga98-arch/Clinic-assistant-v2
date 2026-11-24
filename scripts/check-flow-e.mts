@@ -90,6 +90,14 @@ eq(
   "guard: suggestions need a valid fact and no invented numbers",
 );
 
+eq(groundedLine("Cuádriceps 3/5.", "1. Dolor 3/10. Cuádriceps 4/5."), null, "guard: a score must match a score in the facts, not just its digits");
+eq(groundedLine("Dolor 4/10.", "1. Dolor 3/10. Cuádriceps 4/5."), null, "guard: pain must match the pain in the facts");
+eq(groundedLine("Subir a quince minutos.", "1. Correr 25 min."), null, "guard: numbers written as words are dropped");
+eq(groundedLine("Volver a 20 nov.", "1. Última nota (20 nov): dolor 3/10."), null, "guard: the date's day is not an allowed number");
+eq(groundedLine("Revisar dolor al correr más de 20 minutos.", "1. Actividad: correr 25 min, dolor 5/10 desde el min 20"), "Revisar dolor al correr más de 20 minutos.", "guard: a plain number in the facts stays");
+eq(groundedLine("Mantener 3×10.", "1. Plan: Sentadilla en pared 3×10, diario"), "Mantener 3×10.", "guard: sets × reps that match stay");
+eq(groundedLine("Subir a 4×10.", "1. Plan: Sentadilla en pared 3×10, diario. 2. 4 días"), null, "guard: changed sets × reps are dropped");
+
 // ---------------------------------------------------------------- the brief
 const words = (s: string) => s.split(/\s+/).filter(Boolean).length;
 eq(shortDate("2026-11-20"), "20 nov", "date: short");
@@ -136,6 +144,29 @@ eq(words(brief) <= 120, true, `brief: under 120 words (${words(brief)})`);
 
 const capitals = formatPrepBrief(full, { lastSession: null, suggestions: ["Revalorar fuerza", "TENS si hay dolor", "Bajar la sentadilla."] });
 eq(capitals.includes("*Sugerencia para hoy:* revalorar fuerza; TENS si hay dolor; bajar la sentadilla."), true, "brief: suggestions read as one sentence (acronyms kept)");
+
+const acronym = formatPrepBrief(full, { lastSession: "ROM de rodilla 115°.", suggestions: [] });
+eq(acronym.includes("dolor 3/10; ROM de rodilla 115°."), true, "brief: an acronym after the pain keeps its capitals");
+
+const longText = "la rodilla se inflamó mucho después de correr y ahora no puede apoyar el pie, le duele al caminar y al subir escaleras y siente que se le va ".repeat(8);
+const worst = formatPrepBrief(
+  {
+    ...full,
+    patientName: "María Fernanda de los Ángeles Gutiérrez Hernández",
+    lastSession: { ...full.lastSession!, headline: longText },
+    exercises: { complete: 2, partial: 1, none: 0, noReply: 1, skipped: [{ name: longText, times: 2, comment: longText }, { name: longText, times: 1, comment: longText }], comments: [longText + "x"] },
+    activities: {
+      lines: [longText, longText, longText],
+      more: 9,
+      flags: [longText, longText + "a", longText + "b", longText + "c"],
+    },
+  },
+  { lastSession: longText, suggestions: [longText, longText, longText] },
+);
+const optionLines = NEXT_OPTIONS.after_prep.map((o, i) => `${i + 1}. ${o.icon} ${o.title}`);
+const sent = [nextStepText("after_prep", worst, "María Fernanda de los Ángeles Gutiérrez Hernández"), "", ...optionLines].join(String.fromCharCode(10));
+eq(sent.length <= 1600, true, `brief: the longest brief and its options fit one WhatsApp message (${sent.length})`);
+eq(worst.includes("(+2 más)") && (worst.match(/⚠️/g) ?? []).length === 1, true, "brief: two alerts shown, the rest counted");
 
 const noAi = formatPrepBrief(full, { lastSession: null, suggestions: [] });
 eq(noAi.includes("*Última sesión (20 nov):* dolor 3/10. Próxima sesión: fuerza de cuádriceps."), true, "brief without AI: last session falls back to pain and the agreed focus");

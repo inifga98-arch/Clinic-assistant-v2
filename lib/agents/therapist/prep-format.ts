@@ -73,6 +73,14 @@ const sentence = (t: string) => {
   return s ? `${s}.` : "";
 };
 const clip = (t: string, max = 100) => (t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t);
+/** Lowercase a leading capital to continue a sentence, unless it starts an acronym (ROM, TENS). */
+const continueSentence = (t: string) => t.replace(/^\p{Lu}(?=\p{Ll})/u, (c) => c.toLowerCase());
+/**
+ * The brief goes in one message with the question and 4 options (offerNextStep), and WhatsApp
+ * takes 1,600 characters: every free-text part is clipped, and the whole brief is capped here.
+ */
+export const PREP_MAX = 1400;
+const MAX_FLAGS = 2;
 
 function adherence(x: ExerciseSummary, days: number): { line: string; extra: string[] } {
   const did = x.complete + x.partial;
@@ -87,7 +95,7 @@ function adherence(x: ExerciseSummary, days: number): { line: string; extra: str
 
 /** The brief: one message, facts rendered by code, the AI's lines only where given. */
 export function formatPrepBrief(d: PrepData, ai: PrepAi): string {
-  const lines = [`📋 *${d.patientName} · preparar sesión*`, ""];
+  const lines = [`📋 *${clip(d.patientName, 60)} · preparar sesión*`, ""];
 
   if (!d.lastSession) {
     if (d.diagnosis) lines.push(`*Diagnóstico:* ${d.diagnosis}`);
@@ -98,8 +106,8 @@ export function formatPrepBrief(d: PrepData, ai: PrepAi): string {
     const s = d.lastSession;
     const pain = s.pain != null ? `dolor ${s.pain}/10` : "";
     const body = ai.lastSession
-      ? sentence([pain, ai.lastSession.replace(/^[A-ZÁÉÍÓÚÑ]/, (c) => (pain ? c.toLowerCase() : c))].filter(Boolean).join("; "))
-      : [pain && `${pain}.`, s.headline ? sentence(s.headline) : ""].filter(Boolean).join(" ") || "sin dolor ni plan registrados.";
+      ? sentence([pain, pain ? continueSentence(clip(ai.lastSession, 160)) : clip(ai.lastSession, 160)].filter(Boolean).join("; "))
+      : [pain && `${pain}.`, s.headline ? sentence(clip(s.headline, 120)) : ""].filter(Boolean).join(" ") || "sin dolor ni plan registrados.";
     lines.push(`*Última sesión (${shortDate(s.date)}):* ${body}`);
 
     if (d.days === 0) {
@@ -112,12 +120,12 @@ export function formatPrepBrief(d: PrepData, ai: PrepAi): string {
         const { line, extra } = adherence(d.exercises, d.days);
         parts.push(`${line}${extra.length ? `; ${extra.join(", ")}` : ""}.`);
         for (const sk of d.exercises.skipped.slice(0, 2)) {
-          const comment = sk.comment ? ` («${clip(sk.comment, 60)}»)` : "";
-          parts.push(`${sk.name}: no la hizo ${plural(sk.times, "vez", "veces")}${comment}.`);
+          const comment = sk.comment ? ` («${clip(sk.comment, 50)}»)` : "";
+          parts.push(`${clip(sk.name, 40)}: no la hizo ${plural(sk.times, "vez", "veces")}${comment}.`);
         }
         const shown = new Set(d.exercises.skipped.slice(0, 2).map((sk) => sk.comment));
         const other = d.exercises.comments.find((c) => !shown.has(c));
-        if (other) parts.push(`Comentó: «${clip(other)}».`);
+        if (other) parts.push(`Comentó: «${clip(other, 80)}».`);
       }
       if (!d.activities.lines.length) parts.push("Sin actividades registradas.");
       lines.push(`*Desde entonces (${plural(d.days, "día", "días")}):* ${parts.join(" ")}`);
@@ -126,15 +134,20 @@ export function formatPrepBrief(d: PrepData, ai: PrepAi): string {
 
   if (d.activities.lines.length) {
     const more = d.activities.more ? ` (+${d.activities.more} más)` : "";
-    lines.push(`*Actividad:* ${d.activities.lines.join("; ")}${more}.`);
+    lines.push(`*Actividad:* ${d.activities.lines.map((a) => clip(a, 70)).join("; ")}${more}.`);
   }
-  if (d.activities.flags.length) lines.push(`⚠️ *Alerta:* ${sentence(d.activities.flags.join("; "))}`);
+  if (d.activities.flags.length) {
+    const flags = d.activities.flags.slice(0, MAX_FLAGS).map((f) => clip(f, 100).replace(/[.;]+$/, ""));
+    const extra = d.activities.flags.length - flags.length;
+    lines.push(`⚠️ *Alerta:* ${flags.join("; ")}${extra ? ` (+${extra} más)` : ""}.`);
+  }
   if (ai.suggestions.length) {
     // One sentence: "revalorar …; bajar …". Lowercase a leading capital unless it starts an acronym (TENS).
-    const items = ai.suggestions.map((s) => s.trim().replace(/[.;]+$/, "").replace(/^\p{Lu}(?=\p{Ll})/u, (c) => c.toLowerCase()));
+    const items = ai.suggestions.map((s) => continueSentence(clip(s.trim(), 60).replace(/[.;]+$/, "")));
     lines.push(`*Sugerencia para hoy:* ${sentence(items.join("; "))}`);
   }
-  return lines.join("\n");
+  const brief = lines.join("\n");
+  return brief.length > PREP_MAX ? clip(brief, PREP_MAX) : brief;
 }
 
 /** The facts the AI may use, one per entry (numbered 1… when sent). */

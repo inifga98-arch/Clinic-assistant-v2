@@ -26,7 +26,7 @@ async function main() {
   if (error || !patient) throw new Error(`no patient with phone ${phone}`);
 
   const lastNote = async () => {
-    const { data: session } = await db()
+    const { data: session, error: sErr } = await db()
       .from("sessions")
       .select("session_at")
       .eq("patient_id", patient.id)
@@ -34,7 +34,8 @@ async function main() {
       .order("session_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    const { data: plan } = await db().from("plans").select("id").eq("patient_id", patient.id).eq("status", "active").maybeSingle();
+    const { data: plan, error: pErr } = await db().from("plans").select("id").eq("patient_id", patient.id).eq("status", "active").maybeSingle();
+    if (sErr || pErr) throw new Error((sErr ?? pErr)!.message);
     return { session, plan };
   };
   let { session, plan } = await lastNote();
@@ -48,10 +49,9 @@ async function main() {
   const { data: itemRows } = await db().from("plan_items").select("*").eq("plan_id", plan.id).order("position");
   const exercises = ((itemRows ?? []) as PlanItem[]).filter((i) => i.type === "exercise");
   const today = clinicToday().date;
-  let { days } = prepWindow(clinicToday(new Date(session.session_at)).date, today);
+  const { days } = prepWindow(clinicToday(new Date(session.session_at)).date, today);
   if (!days.length) {
-    console.log("The last session is from today or yesterday: there are no full days to log. Logging yesterday anyway.");
-    days = [prepWindow(addDays(today, -2), today).days[0]];
+    throw new Error("the last confirmed note is from today or yesterday: the brief has no full days to show logs for yet");
   }
 
   // A realistic week: full days, a day the hardest exercise was skipped with a comment, a day with no answer.
@@ -66,6 +66,7 @@ async function main() {
         log_date: day,
         done,
         pain_nprs: done ? (kind === 1 ? 4 : 2) : null,
+        // On the done rows, as the patient check-in saves it (checkin.ts).
         comment: done && kind === 1 ? `${exercises[0].name.toLowerCase()} me costó mucho` : null,
       };
     });
@@ -75,7 +76,8 @@ async function main() {
     if (e) throw new Error(e.message);
   }
 
-  await db().from("activity_logs").delete().eq("patient_id", patient.id).like("comment", `%${SEED_MARK}%`);
+  const { error: dErr } = await db().from("activity_logs").delete().eq("patient_id", patient.id).like("comment", `%${SEED_MARK}%`);
+  if (dErr) throw new Error(dErr.message);
   const at = (day: string, hour: number) => new Date(`${day}T${String(hour).padStart(2, "0")}:00:00-06:00`).toISOString();
   const last = days[days.length - 1];
   type Act = { activity: string; duration_min: number | null; pain_nprs: number | null; pain_location: string | null; onset_min: number | null; red_flag: boolean; logged_at: string };
@@ -155,12 +157,6 @@ async function writeTestNote(patientId: string) {
   if (iErr) throw new Error(`test plan items: ${iErr.message}`);
   await db().from("patients").update({ last_visit_at: sessionAt.toISOString() }).eq("id", patientId);
   console.log(`Wrote a test note (${start}) with a home plan.`);
-}
-
-function addDays(date: string, n: number): string {
-  const d = new Date(`${date}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
 }
 
 main().catch((err) => {

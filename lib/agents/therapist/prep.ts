@@ -52,9 +52,15 @@ export async function handlePrep(ctx: TherapistContext): Promise<AgentResult> {
   // No flow here uses photos: delete them from Twilio and say so.
   const images = message.media.filter((m) => m.contentType.startsWith("image/"));
   for (const image of images) await deleteTwilioMedia(image.url).catch(() => undefined);
-  if (images.length && !message.body.trim() && !message.media.some((m) => m.contentType.startsWith("audio/"))) {
-    await sendText(phone, "No uso fotos para preparar la sesión; la borré. Escribe o di el nombre del paciente.");
-    return state(current.step as "pick_patient", { candidates });
+  if (images.length) {
+    const onlyPhotos = !message.body.trim() && !message.media.some((m) => m.contentType.startsWith("audio/"));
+    await sendText(
+      phone,
+      onlyPhotos
+        ? "No uso fotos para preparar la sesión; la borré. Escribe o di el nombre del paciente."
+        : "No uso fotos para preparar la sesión; la borré.",
+    );
+    if (onlyPhotos) return state(current.step as "pick_patient", { candidates });
   }
 
   const byNumber = matchOption(
@@ -78,10 +84,14 @@ export async function handlePrep(ctx: TherapistContext): Promise<AgentResult> {
     return state(current.step as "pick_patient", { candidates });
   }
 
-  const pool = current.step === "disambiguate" ? candidates : await clinicPatients(therapist.clinic_id);
   const spoken = query.replace(/[.,!?¿¡]/g, " ");
-  let hits = matchPatients(spoken, pool);
-  if (!hits.length && audio) hits = namesInText(spoken, pool); // "prepara la sesión de Laura"
+  const search = (pool: PatientRef[]) => {
+    const found = matchPatients(spoken, pool);
+    return found.length || !audio ? found : namesInText(spoken, pool); // "prepara la sesión de Laura"
+  };
+  // While asking "which one?", look among those first; another name searches the whole clinic.
+  let hits = current.step === "disambiguate" ? search(candidates) : [];
+  if (!hits.length) hits = search(await clinicPatients(therapist.clinic_id));
   if (hits.length === 1) return sendPrep(phone, hits[0].id);
   if (!hits.length) {
     await sendText(phone, `No encontré a «${query.slice(0, 60)}». Escribe el nombre completo.`);

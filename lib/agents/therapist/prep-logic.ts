@@ -122,16 +122,34 @@ export function numbersIn(text: string): string[] {
   return (text.match(/\d+(?:[.,]\d+)?/g) ?? []).map((n) => n.replace(",", "."));
 }
 
-/** The numbers in the facts, without the list's own "1." "2." numbering. */
-function factNumbers(factsText: string): Set<string> {
-  return new Set(numbersIn(factsText.replace(/^\s*\d+\.\s/gm, "")));
+/** Numbers that carry a unit: "3/10", "4/5", "115°", "3×10". They must match as a whole. */
+const UNIT_TOKEN = /\d+(?:[.,]\d+)?\s*(?:\/\s*\d+|°|[×x]\s*\d+)/gi;
+const unitTokens = (text: string) => (text.match(UNIT_TOKEN) ?? []).map((t) => t.replace(/\s+/g, "").replace(",", ".").toLowerCase().replace("x", "×"));
+
+/** Spanish number words the model could use to slip a number past the guard ("quince minutos"). */
+const NUMBER_WORDS =
+  /\b(dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|diecis[eé]is|diecisiete|dieciocho|diecinueve|veinte|veinti\w+|treinta|cuarenta|cincuenta|sesenta|noventa|cien|ciento)\b/i;
+
+/** The facts without the list's own "1." numbering and without the day of a date ("20 nov"). */
+function cleanFacts(factsText: string): string {
+  return factsText
+    .replace(/^\s*\d+\.\s/gm, "")
+    .replace(/\b\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\b/gi, "");
 }
 
-/** The AI's line if every number in it appears in the facts; null otherwise (or when empty). */
+/**
+ * The AI's line if it invents no number; null otherwise (or when empty). A number with a unit
+ * (score, degrees, sets × reps) must appear with the same unit in the facts; a plain number must
+ * appear somewhere in the facts; numbers written as words are not allowed.
+ */
 export function groundedLine(line: string | null | undefined, factsText: string): string | null {
   const t = line?.trim();
   if (!t) return null;
-  const known = factNumbers(factsText);
+  if (NUMBER_WORDS.test(t)) return null;
+  const facts = cleanFacts(factsText);
+  const knownUnits = new Set(unitTokens(facts));
+  if (!unitTokens(t).every((u) => knownUnits.has(u))) return null;
+  const known = new Set(numbersIn(facts));
   return numbersIn(t).every((n) => known.has(n)) ? t : null;
 }
 
