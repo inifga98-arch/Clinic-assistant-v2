@@ -85,6 +85,17 @@ export function nextQuestion(d: NoteDraft): MissingItem | null {
   return missingItems(d.extraction).find((item) => !d.skipped.includes(item)) ?? null;
 }
 
+/**
+ * Fix contradictions in model output before anything else reads it: when the therapist dictated
+ * exercises or activities, those are the plan, even if the model also flagged "sin cambios"
+ * (it does so when the dictated plan equals the current one).
+ */
+export function cleanExtraction(x: SoapExtraction): SoapExtraction {
+  const hasList = x.plan.home_exercises.length > 0 || x.plan.activities.length > 0;
+  if (x.plan.keep_current_plan && hasList) return { ...x, plan: { ...x.plan, keep_current_plan: false } };
+  return x;
+}
+
 // ---------------------------------------------------------------- short replies
 
 const DONE_WORDS = new Set(

@@ -2,7 +2,7 @@
 import { zodResponseFormat } from "openai/helpers/zod";
 import { SoapExtraction, SoapRevision } from "../lib/ai/soap-schema.ts";
 import {
-  QUESTIONS, isDoneWord, isSkipWord, mergeRevision, missingItems, nextQuestion, parsePainAnswer, toNoteColumns,
+  QUESTIONS, cleanExtraction, isDoneWord, isSkipWord, mergeRevision, missingItems, nextQuestion, parsePainAnswer, toNoteColumns,
   toPlanItems, type NoteDraft,
 } from "../lib/agents/therapist/note-draft.ts";
 import { MAX_MESSAGE, formatAck, formatReview } from "../lib/agents/therapist/note-format.ts";
@@ -154,6 +154,12 @@ eq(names(namesInText("Analizamos la marcha", refs)), [], "text: name inside anot
 const luis = refs.filter((r) => r.full_name === "Luis Pérez");
 eq(patientLabel(luis[0], luis), "Luis Pérez (nac. 02/01/1980)", "label: dob only when full names tie");
 eq(patientLabel(refs[0], refs), "Ana López", "label: plain otherwise");
+
+// ---------------------------------------------------------------- Task 6: model output clean-up
+eq(cleanExtraction({ ...sampleNote, plan: { ...sampleNote.plan, keep_current_plan: true } }).plan.keep_current_plan, false,
+  "clean: a dictated list beats 'sin cambios'");
+eq(cleanExtraction({ ...sampleNote, plan: { ...sampleNote.plan, keep_current_plan: true, home_exercises: [] } }).plan.keep_current_plan,
+  true, "clean: 'sin cambios' with no list stays");
 
 if (failed) {
   console.log(`${failed} check(s) failed`);
