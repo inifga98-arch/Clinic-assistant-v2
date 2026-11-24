@@ -1,3 +1,4 @@
+import type { NoteDraft } from "@/lib/agents/therapist/note-draft";
 // Row types for supabase/migrations/0001_init.sql. Shared by every component: change by PR.
 // Hand-written for now; can be replaced with `supabase gen types typescript` later.
 
@@ -66,6 +67,8 @@ export interface Session {
   confirmed_at: Timestamp | null;
   source_transcript: string | null;
   source_audio_url: string | null;
+  /** Working note while status is 'draft' (Flow B); null once confirmed. */
+  draft: NoteDraft | null;
   created_at: Timestamp;
 }
 

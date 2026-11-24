@@ -1,0 +1,11 @@
+/reset
+hola
+2
+Valeria Soto
+Valeria refiere dolor 2 de 10. Dorsiflexión 15 grados. Hicimos propiocepción. Valoración: estable. Sin cambios en el plan de casa.
+/reset
+hola
+2
+1
+listo
+3
