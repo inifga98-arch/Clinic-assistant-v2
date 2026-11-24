@@ -3,7 +3,7 @@ import { zodResponseFormat } from "openai/helpers/zod";
 import { EvaluationExtraction, EvaluationRevision, RegistrationExtraction } from "../lib/ai/intake-schema.ts";
 import { mergeRevision } from "../lib/agents/therapist/note-draft.ts";
 import {
-  classifyNumber, displayPhone, evaluationGaps, isValidDate, parsePatientPhone, patientFieldsFromEvaluation,
+  classifyNumber, displayPhone, reconcileReadings, evaluationGaps, isValidDate, parsePatientPhone, patientFieldsFromEvaluation,
   type NumberOwner,
 } from "../lib/agents/therapist/intake-logic.ts";
 import {
@@ -177,6 +177,32 @@ eq(mediaTypeForPath("forma.JPG"), "image/jpeg", "media: jpg");
 eq(mediaTypeForPath("forma.png"), "image/png", "media: png");
 eq(mediaTypeForPath("nota.ogg"), "audio/ogg", "media: audio still works");
 eq(mediaTypeForPath("x.pdf"), "application/octet-stream", "media: unknown");
+
+// ---------------------------------------------------------------- Task 6: two reads of a photo must agree
+const agree = reconcileReadings(sampleEval, structuredClone(sampleEval));
+eq(agree, sampleEval, "reconcile: identical reads unchanged");
+const otherDob = { ...sampleEval, identification: { ...sampleEval.identification, dob: "1985-07-24", age: 41 } };
+const r1 = reconcileReadings(sampleEval, otherDob);
+eq([r1.identification.dob, r1.identification.age], [null, null], "reconcile: disagreeing date and age blanked");
+eq(r1.unreadable.includes("fecha de nacimiento") && r1.unreadable.includes("edad"), true, "reconcile: blanked fields listed");
+eq(r1.identification.full_name, sampleEval.identification.full_name, "reconcile: agreeing text kept");
+const otherGonio = { ...sampleEval, exam: { ...sampleEval.exam, goniometry: [
+  sampleEval.exam.goniometry[1], { ...sampleEval.exam.goniometry[0], left: "16°" }] } };
+const r2 = reconcileReadings(sampleEval, otherGonio);
+eq(r2.exam.goniometry.map((g) => g.left), [null, "35°"], "reconcile: goniometry rows matched by name, disagreeing cell blanked");
+eq(r2.unreadable.includes("goniometría tobillo flexión dorsal (I)"), true, "reconcile: goniometry cell listed");
+const otherPain = { ...sampleEval, pain: { ...sampleEval.pain, intensity_nprs: 8 },
+  vital_signs: { ...sampleEval.vital_signs, blood_pressure: "120/80" } };
+const r3 = reconcileReadings(sampleEval, otherPain);
+eq([r3.pain.intensity_nprs, r3.vital_signs.blood_pressure, r3.vital_signs.heart_rate], [null, null, "72"],
+  "reconcile: pain and vital signs");
+const reworded = { ...sampleEval, chief_complaint: "Dolor en el tobillo izquierdo" };
+eq(reconcileReadings(sampleEval, reworded).chief_complaint, sampleEval.chief_complaint, "reconcile: wording differences in text keep the first read");
+eq(reconcileReadings({ ...sampleEval, unreadable: ["edema"] }, sampleEval).unreadable, ["edema"], "reconcile: first read's unreadable kept");
+
+eq(formatEvaluationReview("Laura Méndez", sampleEval, { fromPhoto: true }).join("").includes("Revisa fechas y números contra el papel"), true,
+  "review: photo path reminds to check against the paper");
+eq(formatEvaluationReview("Laura Méndez", sampleEval).join("").includes("contra el papel"), false, "review: voice path has no paper reminder");
 
 if (failed) {
   console.log(`${failed} check(s) failed`);

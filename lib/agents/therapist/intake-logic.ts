@@ -112,3 +112,75 @@ export function isValidDate(s: string | null, now = new Date()): boolean {
   if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) return false;
   return date.getTime() <= now.getTime();
 }
+
+// ---------------------------------------------------------------- two reads of a photo
+
+const VITAL_LABELS = {
+  temperature: "temperatura",
+  blood_pressure: "TA",
+  respiratory_rate: "FR",
+  spo2: "SatO2",
+  heart_rate: "FC",
+} as const;
+
+const same = (a: unknown, b: unknown) =>
+  String(a ?? "").replace(/\s+/g, "").toLowerCase() === String(b ?? "").replace(/\s+/g, "").toLowerCase();
+const rowKey = (...parts: string[]) => parts.join(" ").toLowerCase().replace(/\s+/g, " ").trim();
+
+/**
+ * Photos are read twice; where the two reads disagree on a number, date or test result, the
+ * value is a guess. Keep the first read, blank every such disagreeing value and list it as
+ * unreadable, so the therapist fills it in from the paper. Wording differences in free text
+ * are not guesses and keep the first read.
+ */
+export function reconcileReadings(a: EvaluationExtraction, b: EvaluationExtraction): EvaluationExtraction {
+  const out: EvaluationExtraction = structuredClone(a);
+  const flagged: string[] = [];
+  const check = <T>(x: T | null, y: T | null, label: string, clear: () => void) => {
+    if ((x === null || x === undefined) && (y === null || y === undefined)) return;
+    if (!same(x, y)) {
+      clear();
+      flagged.push(label);
+    }
+  };
+
+  check(a.form_date, b.form_date, "fecha del formato", () => (out.form_date = null));
+  check(a.identification.dob, b.identification.dob, "fecha de nacimiento", () => (out.identification.dob = null));
+  check(a.identification.age, b.identification.age, "edad", () => (out.identification.age = null));
+  check(a.identification.physician.phone, b.identification.physician.phone, "teléfono del médico",
+    () => (out.identification.physician.phone = null));
+  check(a.identification.emergency_contact.phone, b.identification.emergency_contact.phone, "teléfono de emergencia",
+    () => (out.identification.emergency_contact.phone = null));
+  check(a.pain.intensity_nprs, b.pain.intensity_nprs, "intensidad del dolor", () => (out.pain.intensity_nprs = null));
+  for (const key of Object.keys(VITAL_LABELS) as (keyof typeof VITAL_LABELS)[]) {
+    check(a.vital_signs[key], b.vital_signs[key], `signos vitales (${VITAL_LABELS[key]})`, () => (out.vital_signs[key] = null));
+  }
+
+  const sides = (
+    rowsA: { right: unknown; left: unknown }[],
+    rowsOut: { right: unknown; left: unknown }[],
+    keysA: string[],
+    lookupB: Map<string, { right: unknown; left: unknown }>,
+    label: (i: number) => string,
+  ) => {
+    rowsA.forEach((row, i) => {
+      const other = lookupB.get(keysA[i]);
+      if (!other) return; // only one read saw this row: nothing to compare
+      check(row.right, other.right, `${label(i)} (D)`, () => (rowsOut[i].right = null));
+      check(row.left, other.left, `${label(i)} (I)`, () => (rowsOut[i].left = null));
+    });
+  };
+  const gonioKey = (g: { joint: string; movement: string }) => rowKey(g.joint, g.movement);
+  sides(a.exam.goniometry, out.exam.goniometry, a.exam.goniometry.map(gonioKey),
+    new Map(b.exam.goniometry.map((g) => [gonioKey(g), g])),
+    (i) => `goniometría ${rowKey(a.exam.goniometry[i].joint, a.exam.goniometry[i].movement)}`);
+  sides(a.exam.strength_mrc, out.exam.strength_mrc, a.exam.strength_mrc.map((s) => rowKey(s.muscle_or_movement)),
+    new Map(b.exam.strength_mrc.map((s) => [rowKey(s.muscle_or_movement), s])),
+    (i) => `fuerza ${rowKey(a.exam.strength_mrc[i].muscle_or_movement)}`);
+  sides(a.exam.orthopedic_tests, out.exam.orthopedic_tests, a.exam.orthopedic_tests.map((t) => rowKey(t.test)),
+    new Map(b.exam.orthopedic_tests.map((t) => [rowKey(t.test), t])),
+    (i) => `prueba ${a.exam.orthopedic_tests[i].test}`);
+
+  out.unreadable = [...new Set([...a.unreadable, ...flagged])];
+  return out;
+}

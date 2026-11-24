@@ -102,7 +102,11 @@ const side = (right: string | number | null, left: string | number | null) =>
  * it against the paper. Empty sections are left out; "Niega" is shown as written. Send all but
  * the last with sendText and the last with sendOptions(EVAL_REVIEW_OPTIONS).
  */
-export function formatEvaluationReview(patientName: string, e: EvaluationExtraction): string[] {
+export function formatEvaluationReview(
+  patientName: string,
+  e: EvaluationExtraction,
+  opts: { fromPhoto?: boolean } = {},
+): string[] {
   const id = e.identification;
   const meta = [
     e.form_region ? `Formato: ${REGION_LABELS[e.form_region]}` : null,
@@ -191,6 +195,7 @@ export function formatEvaluationReview(patientName: string, e: EvaluationExtract
     ]),
     e.unreadable.length ? `⚠️ No se pudo leer: ${e.unreadable.join(", ")}` : null,
     evaluationGaps(e).length ? `Falta: ${evaluationGaps(e).map((g) => EVAL_GAP_LABELS[g]).join(", ")}` : null,
+    opts.fromPhoto ? "📄 Revisa fechas y números contra el papel antes de confirmar." : null,
   ].filter((b): b is string => !!b);
 
   return pack(blocks, MAX_MESSAGE - OPTIONS_ROOM);
