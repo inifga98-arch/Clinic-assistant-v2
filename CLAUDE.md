@@ -86,7 +86,10 @@ everyone can test their own flow at the same time. Use it for every flow change.
 - `--as` takes a name fragment (accents optional) or a phone. Set `SIM_AS` in `.env.local` to
   skip it.
 - It uses the person's real conversation state, so a simulated chat and their real WhatsApp
-  chat continue each other. `--reset` starts over.
+  chat continue each other. `--reset` starts over. **Never simulate as someone who may be using
+  WhatsApp right now**: it clears or changes their live conversation. Test therapist flows as
+  `--as "terapeuta simulador"` (a synthetic therapist, +52 55 0000 9999), patients as seed or
+  test patients.
 - Simulated messages are logged in `messages` with ids starting `SIM`; voice notes are
   transcribed with the real OpenAI key.
 

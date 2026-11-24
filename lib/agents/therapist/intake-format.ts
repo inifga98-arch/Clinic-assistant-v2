@@ -55,8 +55,17 @@ export function evalVoiceGuide(patientName: string): string {
   ].join("\n");
 }
 
+/** One acknowledgement for the pages received so far (photos sent together get one reply). */
 export function formatPageAck(count: number): string {
-  return `📷 Recibí la página ${count}. ¿Hay más páginas?`;
+  return count === 1 ? "📷 Recibí la página 1. ¿Hay más páginas?" : `📷 Recibí ${count} páginas. ¿Hay más?`;
+}
+
+/** Second line of the review: WhatsApp collapses long messages, so the ask goes at the top. */
+export const REVIEW_CTA = "Revisa lo que entendí y responde *1* ✅ Confirmar, *2* ✏️ Corregir o *3* 🗑️ Descartar.";
+
+/** The short last message that carries the options, so they are always visible. */
+export function EVAL_CONFIRM_QUESTION(patientName: string): string {
+  return `¿Guardo la valoración inicial de *${patientName}*?`;
 }
 
 // ---------------------------------------------------------------- registration card
@@ -71,9 +80,10 @@ export function formatRegistrationCard(
   r: { full_name: string; phone: string; reason: string | null },
   sameName?: { full_name: string; dob: string | null },
 ): string {
-  const lines = [`🆕 *${r.full_name}*`, `📱 ${displayPhone(r.phone)}`];
-  if (r.reason?.trim()) lines.push(`🩺 Motivo: ${r.reason.trim()}`);
-  lines.push("👤 Terapeuta: tú");
+  // Data lines stay plain: icons belong on the options only (docs/conversation-design.md).
+  const lines = ["*Información del paciente*", `Nombre: ${r.full_name}`, `WhatsApp: ${displayPhone(r.phone)}`];
+  if (r.reason?.trim()) lines.push(`Motivo: ${r.reason.trim()}`);
+  lines.push("Terapeuta: tú");
   if (sameName) {
     const born = sameName.dob ? ` (nac. ${dmy(sameName.dob)})` : "";
     lines.push("", `⚠️ Ya existe *${sameName.full_name}*${born}. Si es otra persona, guárdala igual.`);
@@ -142,10 +152,20 @@ export function formatEvaluationReview(
     .join("; ");
 
   const blocks = [
-    [`🩺 *Valoración inicial · ${patientName}*`, meta.length ? meta.join(" · ") : null].filter(Boolean).join("\n"),
-    formNameMismatch(id.full_name, patientName)
-      ? `⚠️ El formato es de *${id.full_name}*, no de *${patientName}*. Revisa que sea la hoja correcta antes de confirmar.`
-      : null,
+    // Top: what to do, then anything that needs attention; the details follow.
+    [
+      `🩺 *Valoración inicial · ${patientName}*`,
+      REVIEW_CTA,
+      formNameMismatch(id.full_name, patientName)
+        ? `⚠️ El formato es de *${id.full_name}*, no de *${patientName}*. Revisa que sea la hoja correcta.`
+        : null,
+      e.unreadable.length ? `⚠️ No se pudo leer: ${e.unreadable.join(", ")}` : null,
+      evaluationGaps(e).length ? `Falta: ${evaluationGaps(e).map((g) => EVAL_GAP_LABELS[g]).join(", ")}` : null,
+      opts.fromPhoto ? "📄 Revisa fechas y números contra el papel." : null,
+      meta.length ? meta.join(" · ") : null,
+    ]
+      .filter(Boolean)
+      .join("\n"),
     block("Ficha", [
       kv("Edad", id.age),
       id.dob ? kv("Nacimiento", dmy(id.dob)) : null,
@@ -197,9 +217,6 @@ export function formatEvaluationReview(
       e.treatment_plan.goals.length ? `Objetivos: ${e.treatment_plan.goals.join("; ")}` : null,
       e.treatment_plan.instructions.length ? `Indicaciones: ${e.treatment_plan.instructions.join("; ")}` : null,
     ]),
-    e.unreadable.length ? `⚠️ No se pudo leer: ${e.unreadable.join(", ")}` : null,
-    evaluationGaps(e).length ? `Falta: ${evaluationGaps(e).map((g) => EVAL_GAP_LABELS[g]).join(", ")}` : null,
-    opts.fromPhoto ? "📄 Revisa fechas y números contra el papel antes de confirmar." : null,
   ].filter((b): b is string => !!b);
 
   return pack(blocks, MAX_MESSAGE - OPTIONS_ROOM);

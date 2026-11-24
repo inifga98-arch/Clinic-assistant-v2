@@ -42,6 +42,19 @@ Use the same icon for the same meaning everywhere:
 
 One icon per option, no decoration inside sentences. Emojis are signposts, not mood.
 
+Information blocks (a card to confirm, a summary) have a bold title and plain `Label: value`
+lines, with no icons; the icons go on the options below them:
+
+```
+*Información del paciente*
+Nombre: Laura Méndez
+WhatsApp: +52 55 1234 5678
+Terapeuta: tú
+
+1. ✅ Guardar
+2. ✏️ Corregir
+```
+
 ## 2. Show what you understood before it counts
 
 Voice transcription and AI extraction make mistakes. Before anything is saved, show the person
@@ -67,6 +80,9 @@ example. People give better answers when they know the shape.
 - Ask one thing at a time. If something is missing, ask for that one thing ("¿Qué dolor
   sentiste, del 0 al 10?"), with a way to skip when skipping is safe.
 - Every message ends with a next step: options, or a clear "responde *Listo* cuando termines".
+- After saving something, don't just end: say what was saved and offer the likely next step
+  for the same person, the main menu, and a way out, in one message ("✅ Guardado … ¿Algo más
+  con *Camila*?" 1. 📝 Nota de esta sesión 2. 🏠 Menú principal 3. ✅ Es todo).
 - Errors say what to do next: "No pude escuchar tu nota de voz. ¿La mandas otra vez o la
   escribes?", never just "Error".
 - Accept the natural answer as well as the option: "sí", "listo", "3/10", a typed name. But only

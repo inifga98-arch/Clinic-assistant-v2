@@ -19,6 +19,7 @@ import {
   activePlanLines, appendTranscript, confirmNote, createDraft, deleteDraft, draftStatus, latestDraft, loadDraft, setDraftFields,
   type LoadedDraft,
 } from "./note-store";
+import { offerNextStep } from "./next-step";
 import { looksLikeName, matchPatients, namesInText, patientLabel, type PatientRef } from "./patient-match";
 import { clinicPatients, recentPatients } from "./patient-picker";
 
@@ -487,7 +488,10 @@ async function confirm(phone: string, loaded: LoadedDraft): Promise<AgentResult>
   );
   if (result === "already_confirmed") await sendText(phone, "Esta nota ya estaba guardada.");
   else if (result === "not_found") await sendText(phone, "Esa nota ya no está abierta.");
-  else await sendText(phone, `Guardado en el expediente de *${loaded.patient.full_name}*.${nextReminder(loaded.patient)}`);
+  else {
+    const lead = `✅ Guardado en el expediente de *${loaded.patient.full_name}*.${nextReminder(loaded.patient)}`;
+    return offerNextStep(phone, "after_note", lead, loaded.patient);
+  }
   return done();
 }
 

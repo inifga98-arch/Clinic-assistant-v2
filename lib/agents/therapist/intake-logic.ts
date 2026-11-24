@@ -150,6 +150,19 @@ const canonical = (v: unknown) =>
     .replace(/[^a-z0-9./]/g, "");
 const same = (a: unknown, b: unknown) => canonical(a) === canonical(b);
 const blank = (v: unknown) => v === null || v === undefined || String(v).trim() === "";
+/**
+ * Row names as the two reads may write them: "Flex. dorsal" and "Flexión dorsal" are the same
+ * row. Each word is cut to its first 4 letters (accents and punctuation removed).
+ */
+const rowMatchKey = (name: string) =>
+  name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .map((w) => w.slice(0, 4))
+    .join(" ");
 /** A readable label for a row: lower case, single spaces (accents kept for the therapist). */
 const rowLabel = (...parts: string[]) => parts.join(" ").toLowerCase().replace(/\s+/g, " ").trim();
 
@@ -216,9 +229,9 @@ export function reconcileReadings(a: EvaluationExtraction, b: EvaluationExtracti
     key: (r: R) => string,
     label: (r: R) => string,
   ) => {
-    const lookupB = new Map(rowsB.map((r) => [canonical(key(r)), r]));
+    const lookupB = new Map(rowsB.map((r) => [rowMatchKey(key(r)), r]));
     rowsA.forEach((row, i) => {
-      const other = lookupB.get(canonical(key(row))); // undefined: only this read saw the row
+      const other = lookupB.get(rowMatchKey(key(row))); // undefined: only this read saw the row
       check(row.right, other?.right ?? null, `${label(row)} (D)`, () => (rowsOut[i].right = null));
       check(row.left, other?.left ?? null, `${label(row)} (I)`, () => (rowsOut[i].left = null));
     });

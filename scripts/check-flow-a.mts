@@ -8,10 +8,11 @@ import {
 } from "../lib/agents/therapist/intake-logic.ts";
 import {
   EVAL_REVIEW_OPTIONS, EVAL_SOURCE_OPTIONS, PAGES_OPTIONS, PHOTO_PROMPT, REGISTRATION_OPTIONS, REGISTRATION_PROMPT,
-  evalVoiceGuide, formatEvaluationReview, formatPageAck, formatRegistrationCard,
+  EVAL_CONFIRM_QUESTION, REVIEW_CTA, evalVoiceGuide, formatEvaluationReview, formatPageAck, formatRegistrationCard,
 } from "../lib/agents/therapist/intake-format.ts";
 import { MAX_MESSAGE } from "../lib/agents/therapist/note-format.ts";
 import { mediaTypeForPath } from "../lib/whatsapp/media-types.ts";
+import { NEXT_OPTIONS, nextStepText } from "../lib/agents/therapist/next-step-format.ts";
 
 let failed = 0;
 function eq(actual: unknown, expected: unknown, label: string) {
@@ -141,8 +142,8 @@ eq(displayPhone("+16172597932"), "+16172597932", "display: other");
 
 // ---------------------------------------------------------------- Task 4: messages
 const card = formatRegistrationCard({ full_name: "Laura Méndez", phone: "+5215512345678", reason: "rodilla derecha" });
-eq(card.includes("🆕 *Laura Méndez*") && card.includes("📱 +52 55 1234 5678") && card.includes("🩺 Motivo: rodilla derecha"), true,
-  "card: name, display phone, reason");
+eq(card, ["*Información del paciente*", "Nombre: Laura Méndez", "WhatsApp: +52 55 1234 5678", "Motivo: rodilla derecha", "Terapeuta: tú"].join("\n"),
+  "card: titled block, plain lines, no emojis");
 eq(formatRegistrationCard({ full_name: "Laura Méndez", phone: "+5215512345678", reason: null }).includes("Motivo"), false,
   "card: no reason line when none");
 eq(formatRegistrationCard({ full_name: "Laura Méndez", phone: "+5215512345678", reason: null },
@@ -170,7 +171,8 @@ for (const [name, list] of Object.entries({ REGISTRATION_OPTIONS, EVAL_SOURCE_OP
 eq(REGISTRATION_PROMPT.length < 600 && REGISTRATION_PROMPT.includes("*nombre completo*"), true, "registration prompt");
 eq(PHOTO_PROMPT.includes("*Plan de tratamiento*"), true, "photo prompt names the last page");
 eq(evalVoiceGuide("Laura Méndez").includes("*Plan de tratamiento:*"), true, "voice guide follows the form");
-eq(formatPageAck(2), "📷 Recibí la página 2. ¿Hay más páginas?", "page ack");
+eq(formatPageAck(1), "📷 Recibí la página 1. ¿Hay más páginas?", "page ack: one");
+eq(formatPageAck(3), "📷 Recibí 3 páginas. ¿Hay más?", "page ack: several in one message");
 
 // ---------------------------------------------------------------- Task 5: media types
 eq(mediaTypeForPath("forma.JPG"), "image/jpeg", "media: jpg");
@@ -253,6 +255,34 @@ const ins = [1, 2, 3].map((i) => ({ kind: "note" as const, text: `n${i}`, audio_
 eq(lateInputs({ inputs: ins, extraction: null, step: "review", source: "voice", extracted_count: 2 }).map((n) => n.kind === "note" && n.text),
   ["n3"], "late inputs: after extraction");
 eq(lateInputs({ inputs: ins, extraction: null, step: "review", source: "voice" }), [], "late inputs: none before any extraction");
+
+// Row names abbreviated differently by the two reads are the same row.
+const abbreviated: EvaluationExtraction = { ...sampleEval, exam: { ...sampleEval.exam,
+  goniometry: sampleEval.exam.goniometry.map((g) => ({ ...g, movement: g.movement.replace("Flexión", "Flex.") })),
+  strength_mrc: [{ muscle_or_movement: "Eversores tobillo", right: 5, left: 4 }] } };
+eq(reconcileReadings(sampleEval, abbreviated).exam.goniometry.map((g) => g.left), ["10°", "35°"],
+  "reconcile: 'Flex. dorsal' and 'Flexión dorsal' are the same row");
+
+// ---------------------------------------------------------------- the call to action is at the top
+const topLines = formatEvaluationReview("Lucía Prueba Uno", { ...emptyEval, unreadable: ["edema"] }, { fromPhoto: true })[0].split("\n");
+eq(topLines[1], REVIEW_CTA, "review: the call to action is the second line");
+const firstSection = topLines.findIndex((l) => l === "*Ficha*");
+const warn = (txt: string) => topLines.findIndex((l) => l.includes(txt));
+eq([warn("El formato es de"), warn("No se pudo leer"), warn("Falta:"), warn("contra el papel")].every((i) => i > 1 && i < firstSection), true,
+  "review: warnings come right after the call to action, before the details");
+eq(REVIEW_CTA, "Revisa lo que entendí y responde *1* ✅ Confirmar, *2* ✏️ Corregir o *3* 🗑️ Descartar.", "review: call to action copy");
+eq(EVAL_CONFIRM_QUESTION("Laura Méndez"), "¿Guardo la valoración inicial de *Laura Méndez*?", "review: final short question");
+
+// ---------------------------------------------------------------- what comes after saving
+eq(nextStepText("after_eval", "✅ Valoración inicial guardada en el expediente de *Camila Trad*.", "Camila Trad"),
+  ["✅ Valoración inicial guardada en el expediente de *Camila Trad*.", "", "¿Algo más con *Camila Trad*?"].join("\n"),
+  "next: after evaluation names the patient");
+eq(nextStepText("after_note", "Guardado.", null), ["Guardado.", "", "¿Algo más?"].join("\n"), "next: after a note");
+eq(NEXT_OPTIONS.after_eval.map((o) => `${o.icon} ${o.title}`), ["📝 Nota de esta sesión", "🏠 Menú principal", "✅ Es todo"],
+  "next: options after an evaluation");
+eq(NEXT_OPTIONS.after_note.map((o) => `${o.icon} ${o.title}`), ["📝 Nota de otro paciente", "🏠 Menú principal", "✅ Es todo"],
+  "next: options after a note");
+eq(NEXT_OPTIONS.after_later.map((o) => o.title), ["Nota de sesión", "Menú principal", "Es todo"], "next: options after Después");
 
 if (failed) {
   console.log(`${failed} check(s) failed`);
