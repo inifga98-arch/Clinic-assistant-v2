@@ -18,6 +18,7 @@ import { isConfirmWord, isDoneWord, mergeRevision } from "./note-draft";
 import { RECORDING_OPTIONS, VOICE_OPTIONS, formatAck, formatCorrectionAck } from "./note-format";
 import { looksLikeName, matchPatients, patientLabel, type PatientRef } from "./patient-match";
 import { clinicPatients, recentPatients } from "./patient-picker";
+import { offerNextStep } from "./next-step";
 import { noteFrom } from "./session-note";
 
 // Flow A, piece 3: the initial evaluation ("Valoración inicial") from photos of the clinic's
@@ -154,8 +155,7 @@ async function chooseSource(message: IncomingMessage, loaded: LoadedEval): Promi
 
   if (choice?.id === "later") {
     await deleteEvalDraft(evalId);
-    await sendText(phone, "Va. Puedes hacerla después desde el menú: 🩺 Valoración inicial.");
-    return done();
+    return offerNextStep(phone, "after_later", "Va. Puedes hacerla después desde el menú: 🩺 Valoración inicial.", null);
   }
   const photo = choice?.id === "photo" || !!imageOf(message);
   const voice = choice?.id === "voice" || hasAudio(message);
@@ -438,7 +438,10 @@ async function confirm(phone: string, loaded: LoadedEval): Promise<AgentResult> 
   });
   if (result === "already_confirmed") await sendText(phone, "Esta valoración ya estaba guardada.");
   else if (result === "not_found") await sendText(phone, "Esa valoración ya no está abierta.");
-  else await sendText(phone, `✅ Valoración inicial guardada en el expediente de *${loaded.patient.full_name}*.`);
+  else {
+    const lead = `✅ Valoración inicial guardada en el expediente de *${loaded.patient.full_name}*.`;
+    return offerNextStep(phone, "after_eval", lead, loaded.patient);
+  }
   return done();
 }
 

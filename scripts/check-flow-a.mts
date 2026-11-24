@@ -12,6 +12,7 @@ import {
 } from "../lib/agents/therapist/intake-format.ts";
 import { MAX_MESSAGE } from "../lib/agents/therapist/note-format.ts";
 import { mediaTypeForPath } from "../lib/whatsapp/media-types.ts";
+import { NEXT_OPTIONS, nextStepText } from "../lib/agents/therapist/next-step-format.ts";
 
 let failed = 0;
 function eq(actual: unknown, expected: unknown, label: string) {
@@ -271,6 +272,17 @@ eq([warn("El formato es de"), warn("No se pudo leer"), warn("Falta:"), warn("con
   "review: warnings come right after the call to action, before the details");
 eq(REVIEW_CTA, "Revisa lo que entendí y responde *1* ✅ Confirmar, *2* ✏️ Corregir o *3* 🗑️ Descartar.", "review: call to action copy");
 eq(EVAL_CONFIRM_QUESTION("Laura Méndez"), "¿Guardo la valoración inicial de *Laura Méndez*?", "review: final short question");
+
+// ---------------------------------------------------------------- what comes after saving
+eq(nextStepText("after_eval", "✅ Valoración inicial guardada en el expediente de *Camila Trad*.", "Camila Trad"),
+  ["✅ Valoración inicial guardada en el expediente de *Camila Trad*.", "", "¿Algo más con *Camila Trad*?"].join("\n"),
+  "next: after evaluation names the patient");
+eq(nextStepText("after_note", "Guardado.", null), ["Guardado.", "", "¿Algo más?"].join("\n"), "next: after a note");
+eq(NEXT_OPTIONS.after_eval.map((o) => `${o.icon} ${o.title}`), ["📝 Nota de esta sesión", "🏠 Menú principal", "✅ Es todo"],
+  "next: options after an evaluation");
+eq(NEXT_OPTIONS.after_note.map((o) => `${o.icon} ${o.title}`), ["📝 Nota de otro paciente", "🏠 Menú principal", "✅ Es todo"],
+  "next: options after a note");
+eq(NEXT_OPTIONS.after_later.map((o) => o.title), ["Nota de sesión", "Menú principal", "Es todo"], "next: options after Después");
 
 if (failed) {
   console.log(`${failed} check(s) failed`);

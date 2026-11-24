@@ -3,7 +3,10 @@ import type { AgentResult, TherapistContext } from "@/lib/agents/types";
 import { matchOption, normalizeText, sendOptions, sendText, type Option } from "@/lib/whatsapp/send";
 import { handleInitialEval, startInitialEval } from "./initial-eval";
 import { handleNewPatient, startNewPatient } from "./new-patient";
-import { handleSessionNote, startSessionNote } from "./session-note";
+import { NEXT_FLOW } from "./next-step";
+import { DONE_TEXT, NEXT_OPTIONS, type NextStepKind } from "./next-step-format";
+import { getPatient } from "./patient-store";
+import { handleSessionNote, startSessionNote, startSessionNoteFor } from "./session-note";
 
 // Therapist agent. Owner: Person 1. Flows A (new patient), B (session note + plan),
 // E (prep a session), F (handoff). See docs/prd.md "Happy flows" and "Therapist agent".
@@ -45,6 +48,24 @@ export async function handleTherapistMessage(ctx: TherapistContext): Promise<Age
     return { nextState: null };
   }
 
+  if (state?.flow === NEXT_FLOW) {
+    // The follow-up offered after a save. Anything that isn't one of its options is handled as
+    // if no flow were open (a greeting shows the menu).
+    const kind = state.step as NextStepKind;
+    const pick = matchOption(message.buttonPayload ?? message.body, NEXT_OPTIONS[kind] ?? []);
+    if (pick?.id === "done") {
+      await sendText(message.phone, DONE_TEXT);
+      return { nextState: null };
+    }
+    if (pick?.id === "menu") return showMenu(ctx, `¿Qué quieres hacer, ${firstName}?`);
+    if (pick?.id === "note_same") {
+      const patient = await getPatient(String(state.context.patientId ?? ""));
+      if (patient) return startSessionNoteFor(ctx, patient);
+    }
+    if (pick) return startSessionNote(ctx);
+    return handleTherapistMessage({ ...ctx, state: null });
+  }
+
   if (state?.flow === "session_note") return handleSessionNote(ctx);
   if (state?.flow === "new_patient") return handleNewPatient(ctx);
   if (state?.flow === "initial_eval") return handleInitialEval(ctx);
@@ -54,6 +75,10 @@ export async function handleTherapistMessage(ctx: TherapistContext): Promise<Age
     return { nextState: null };
   }
 
-  await sendOptions(message.phone, `Hola, ${firstName}. ¿Qué quieres hacer?`, MENU);
+  return showMenu(ctx, `Hola, ${firstName}. ¿Qué quieres hacer?`);
+}
+
+async function showMenu(ctx: TherapistContext, intro: string): Promise<AgentResult> {
+  await sendOptions(ctx.message.phone, intro, MENU);
   return { nextState: { flow: "menu", step: "awaiting_choice", context: {} } };
 }
