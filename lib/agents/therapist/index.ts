@@ -10,10 +10,10 @@ import { handleSessionNote, startSessionNote } from "./session-note";
 // Built: Flow B (session-note.ts). Still placeholders: A, E, F.
 
 export const MENU: Option[] = [
-  { id: "new_patient", title: "Nuevo paciente" },
-  { id: "session_note", title: "Nota de sesión" },
-  { id: "prep", title: "Preparar sesión" },
-  { id: "handoff", title: "Traspaso de paciente" },
+  { id: "new_patient", title: "Nuevo paciente", icon: "🆕" },
+  { id: "session_note", title: "Nota de sesión", icon: "📝" },
+  { id: "prep", title: "Preparar sesión", icon: "📋" },
+  { id: "handoff", title: "Traspaso de paciente", icon: "🔄" },
 ];
 
 /** A greeting while the menu is open repeats the menu instead of "No entendí". */

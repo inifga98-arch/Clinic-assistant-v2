@@ -1,0 +1,9 @@
+/reset
+hola
+2
+Valeria Soto
+/audio test_inputs/ws2_sessions/es/audio/nota_valeria.mp3
+3
+La dorsiflexión fue 17 grados, no 15.
+listo
+3

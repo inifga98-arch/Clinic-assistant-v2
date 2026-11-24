@@ -1,16 +1,14 @@
 import "server-only";
 import { db } from "@/lib/db/server";
 import { requireEnv } from "@/lib/env";
+import { formatOptions, type Option } from "./options";
 import { normalizePhone, toWhatsAppAddress } from "./phone";
 import { twilioClient } from "./twilio";
 
 // R-7: shared send helpers. Agents call these and never talk to Twilio directly, so we can
 // switch to the Meta Cloud API later without touching the flows.
 
-export interface Option {
-  id: string; // what the agent gets back when the user picks it
-  title: string; // shown to the user (WhatsApp limit: 20 chars for buttons, 24 for list rows)
-}
+export type { Option } from "./options";
 
 /** One outgoing message, before it reaches a channel. */
 export type OutboundMessage =
@@ -57,8 +55,7 @@ export async function sendText(to: string, body: string): Promise<void> {
  * agent accepts either the number or the title as the answer (see matchOption).
  */
 export async function sendOptions(to: string, body: string, options: Option[]): Promise<void> {
-  const lines = options.map((o, i) => `${i + 1}. ${o.title}`);
-  await sendText(to, `${body}\n\n${lines.join("\n")}`);
+  await sendText(to, formatOptions(body, options));
 }
 
 /** Map a reply ("2", "nota de sesión", a button payload) to one of the options sent. */

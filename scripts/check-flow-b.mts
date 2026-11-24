@@ -5,8 +5,9 @@ import {
   QUESTIONS, cleanExtraction, describePlanItem, isConfirmWord, lateNotes, planHeadline, isDoneWord, isSkipWord, mergeRevision, missingItems, nextQuestion, parsePainAnswer, toNoteColumns,
   toPlanItems, type NoteDraft,
 } from "../lib/agents/therapist/note-draft.ts";
-import { MAX_MESSAGE, formatAck, formatReview } from "../lib/agents/therapist/note-format.ts";
-import { matchPatients, namesInText, patientLabel, type PatientRef } from "../lib/agents/therapist/patient-match.ts";
+import { MAX_MESSAGE, SOAP_GUIDE, formatAck, formatReview, formatCorrectionAck } from "../lib/agents/therapist/note-format.ts";
+import { formatOptions } from "../lib/whatsapp/options.ts";
+import { looksLikeName, matchPatients, namesInText, patientLabel, type PatientRef } from "../lib/agents/therapist/patient-match.ts";
 
 let failed = 0;
 function eq(actual: unknown, expected: unknown, label: string) {
@@ -130,7 +131,7 @@ const long: SoapExtraction = { ...sampleNote, subjective: { ...sampleNote.subjec
 const parts = formatReview({ patientName: "Ana López", date: "2026-11-23", note: long, missing: [], hasActivePlan: true });
 eq(parts.length > 1 && parts.every((p) => p.length <= MAX_MESSAGE - 60), true, "review: long note split, each part fits with options");
 eq(parts.join("").includes("Elevación de pierna recta"), true, "review: nothing lost when split");
-eq(formatAck("Ana López", 2), "Anotado para Ana López (nota 2).", "ack text");
+eq(formatAck("Ana López", 2), ["Anotado para Ana López (nota 2)."], "ack text");
 
 // ---------------------------------------------------------------- Task 5: patient matching
 const ref = (id: string, full_name: string, dob: string | null = null): PatientRef =>
@@ -202,6 +203,24 @@ const t3 = [1, 2, 3].map((i) => ({ text: `n${i}`, audio_url: null, received_at: 
 eq(lateNotes({ ...d, transcripts: t3, extracted_count: 2 }).map((t) => t.text), ["n3"], "late notes: the one after extraction");
 eq(lateNotes({ ...d, transcripts: t3, extracted_count: 3 }), [], "late notes: none");
 eq(lateNotes({ ...d, transcripts: t3 }), [], "late notes: none when never counted");
+
+// ---------------------------------------------------------------- UX: icons, transcript echo, SOAP guide
+eq(formatOptions("¿Qué quieres hacer?", [{ id: "a", title: "Nota de sesión", icon: "📝" }, { id: "b", title: "Otra" }]),
+  "¿Qué quieres hacer?\n\n1. 📝 Nota de sesión\n2. Otra", "options: icon before the title, none when missing");
+eq(formatAck("Ana López", 2, "Refiere dolor 3 de 10."),
+  ["🎙️ Anotado para Ana López (nota 2). Esto entendí:\n«Refiere dolor 3 de 10.»\n\n¿Algo mal? Elige *Corregir*."],
+  "ack: voice note shows the transcription");
+const longAck = formatAck("Ana López", 1, "palabra ".repeat(500).trim());
+eq(longAck.length > 1 && longAck.every((p) => p.length <= MAX_MESSAGE - 60), true, "ack: long transcription split, each part fits with options");
+eq(longAck.join(" ").includes("¿Algo mal? Elige *Corregir*."), true, "ack: hint kept when split");
+eq(formatCorrectionAck(2), "✏️ Corrección anotada para la nota 2.", "correction ack");
+for (const part of ["*S – Subjetivo:*", "*O – Objetivo:*", "*A – Valoración:*", "*P – Plan:*", "*Listo*"])
+  eq(SOAP_GUIDE.includes(part), true, `SOAP guide has ${part}`);
+eq(SOAP_GUIDE.length < MAX_MESSAGE - 200, true, "SOAP guide fits in one message with the patient line");
+
+for (const t of ["Valeria Soto", "ana", "María de la Luz Pérez", "Méndez"]) eq(looksLikeName(t), true, `name: ${t}`);
+for (const t of ["La dorsiflexión fue 17 grados, no 15.", "Dolor 3 de 10", "Refiere que se siente mucho mejor hoy y caminó sin dolor"])
+  eq(looksLikeName(t), false, `not a name: ${t}`);
 
 if (failed) {
   console.log(`${failed} check(s) failed`);
