@@ -6,6 +6,7 @@ import {
   toPlanItems, type NoteDraft,
 } from "../lib/agents/therapist/note-draft.ts";
 import { MAX_MESSAGE, formatAck, formatReview } from "../lib/agents/therapist/note-format.ts";
+import { matchPatients, namesInText, patientLabel, type PatientRef } from "../lib/agents/therapist/patient-match.ts";
 
 let failed = 0;
 function eq(actual: unknown, expected: unknown, label: string) {
@@ -130,6 +131,29 @@ const parts = formatReview({ patientName: "Ana López", date: "2026-11-23", note
 eq(parts.length > 1 && parts.every((p) => p.length <= MAX_MESSAGE - 60), true, "review: long note split, each part fits with options");
 eq(parts.join("").includes("Elevación de pierna recta"), true, "review: nothing lost when split");
 eq(formatAck("Ana López", 2), "Anotado para Ana López (nota 2).", "ack text");
+
+// ---------------------------------------------------------------- Task 5: patient matching
+const ref = (id: string, full_name: string, dob: string | null = null): PatientRef =>
+  ({ id, full_name, dob, diagnosis: null, assigned_therapist_id: null });
+const refs = [ref("1", "Ana López"), ref("2", "Ana Martínez"), ref("3", "Carlos Méndez"),
+  ref("4", "Luis Pérez", "1980-01-02"), ref("5", "Luis Pérez", "1992-05-06")];
+const names = (ps: PatientRef[]) => ps.map((p) => p.full_name);
+eq(names(matchPatients("ana", refs)), ["Ana López", "Ana Martínez"], "match: first name, two hits");
+eq(names(matchPatients("ana lopez", refs)), ["Ana López"], "match: accents ignored");
+eq(names(matchPatients("Ana López.", refs)), ["Ana López"], "match: punctuation ignored");
+eq(names(matchPatients("lopes", refs)), ["Ana López"], "match: one-letter typo in a surname");
+eq(names(matchPatients("Méndez", refs)), ["Carlos Méndez"], "match: last name only");
+eq(names(matchPatients("Roberto", refs)), [], "match: none");
+eq(names(matchPatients("", refs)), [], "match: empty query");
+eq(names(matchPatients("luis perez", refs)).length, 2, "match: identical full names both returned");
+eq(names(namesInText("Sesión con Carlos Méndez, hoy trabajamos hombro", refs)), ["Carlos Méndez"], "text: full name found");
+eq(names(namesInText("La paciente refiere dolor 3 de 10", refs)), [], "text: no name");
+eq(namesInText("Ana vino hoy", refs).length, 2, "text: first name alone is ambiguous");
+eq(names(namesInText("Hoy vi a Ana López, rodilla", refs)), ["Ana López"], "text: full name beats first name");
+eq(names(namesInText("Analizamos la marcha", refs)), [], "text: name inside another word does not count");
+const luis = refs.filter((r) => r.full_name === "Luis Pérez");
+eq(patientLabel(luis[0], luis), "Luis Pérez (nac. 02/01/1980)", "label: dob only when full names tie");
+eq(patientLabel(refs[0], refs), "Ana López", "label: plain otherwise");
 
 if (failed) {
   console.log(`${failed} check(s) failed`);
