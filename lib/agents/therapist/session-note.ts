@@ -13,7 +13,7 @@ import {
   toNoteColumns, toPlanItems, type MissingItem, type NoteDraft, type SessionNoteStep, type TranscriptEntry,
 } from "./note-draft";
 import {
-  RECORDING_OPTIONS, REVIEW_OPTIONS, SOAP_GUIDE, VOICE_OPTIONS, formatAck, formatCorrectionAck, formatReview,
+  RECORDING_OPTIONS, REVIEW_OPTIONS, VOICE_OPTIONS, formatAck, formatCorrectionAck, formatReview, recordingIntro,
 } from "./note-format";
 import {
   activePlanLines, appendTranscript, confirmNote, createDraft, deleteDraft, draftStatus, latestDraft, loadDraft, setDraftFields,
@@ -236,7 +236,7 @@ async function beginDraft(
     const only = pending.length === 1 ? pending[0] : null;
     await sendAck(phone, patient.full_name, count, only?.audio_url ? only.text : undefined);
   } else {
-    await sendText(phone, `📝 Nota de *${patient.full_name}*.\n\n${SOAP_GUIDE}`);
+    await sendText(phone, recordingIntro(patient.full_name, 0));
   }
   return state("recording", { sessionId });
 }
@@ -532,7 +532,7 @@ async function resume(phone: string, sessionId: string): Promise<AgentResult> {
   }
   await sendOptions(
     phone,
-    `Sigue la nota de *${loaded.patient.full_name}* (${draft.transcripts.length} nota(s)). Manda otra o responde Listo.`,
+    recordingIntro(loaded.patient.full_name, draft.transcripts.length),
     RECORDING_OPTIONS,
   );
   return state("recording", { sessionId });
