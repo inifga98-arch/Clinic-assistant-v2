@@ -6,6 +6,11 @@ import {
   classifyNumber, displayPhone, evaluationGaps, isValidDate, parsePatientPhone, patientFieldsFromEvaluation,
   type NumberOwner,
 } from "../lib/agents/therapist/intake-logic.ts";
+import {
+  EVAL_REVIEW_OPTIONS, EVAL_SOURCE_OPTIONS, PAGES_OPTIONS, PHOTO_PROMPT, REGISTRATION_OPTIONS, REGISTRATION_PROMPT,
+  evalVoiceGuide, formatEvaluationReview, formatPageAck, formatRegistrationCard,
+} from "../lib/agents/therapist/intake-format.ts";
+import { MAX_MESSAGE } from "../lib/agents/therapist/note-format.ts";
 
 let failed = 0;
 function eq(actual: unknown, expected: unknown, label: string) {
@@ -132,6 +137,39 @@ eq(isValidDate("2999-01-01"), false, "date: future");
 eq(isValidDate("14/03/1991"), false, "date: wrong format");
 eq(displayPhone("+5215512345678"), "+52 55 1234 5678", "display: MX");
 eq(displayPhone("+16172597932"), "+16172597932", "display: other");
+
+// ---------------------------------------------------------------- Task 4: messages
+const card = formatRegistrationCard({ full_name: "Laura Méndez", phone: "+5215512345678", reason: "rodilla derecha" });
+eq(card.includes("🆕 *Laura Méndez*") && card.includes("📱 +52 55 1234 5678") && card.includes("🩺 Motivo: rodilla derecha"), true,
+  "card: name, display phone, reason");
+eq(formatRegistrationCard({ full_name: "Laura Méndez", phone: "+5215512345678", reason: null }).includes("Motivo"), false,
+  "card: no reason line when none");
+eq(formatRegistrationCard({ full_name: "Laura Méndez", phone: "+5215512345678", reason: null },
+  { full_name: "Laura Méndez", dob: "1991-03-14" }).includes("⚠️ Ya existe *Laura Méndez* (nac. 14/03/1991)"), true,
+  "card: same-name warning with dob");
+const review = formatEvaluationReview("Laura Méndez", sampleEval).join("\n");
+eq(review.startsWith("🩺 *Valoración inicial · Laura Méndez*"), true, "review: header");
+eq(review.includes("Alergias: Niega"), true, "review: stated none shown as written");
+eq(review.includes("Tobillo flexión dorsal: D 20° / I 10°"), true, "review: goniometry right/left");
+eq(review.includes("Cajón anterior: D negativa / I dolorosa"), true, "review: orthopedic tests right/left");
+eq(review.includes("Diabetes (madre)"), true, "review: family history");
+eq(review.includes("Falta:") || review.includes("No se pudo leer:"), false, "review: complete eval lists no gaps");
+eq(review.indexOf("*Motivo*") < review.indexOf("*Exploración*") && review.indexOf("*Exploración*") < review.indexOf("*Plan de tratamiento*"),
+  true, "review: form order");
+const gapReview = formatEvaluationReview("Laura Méndez", { ...emptyEval, unreadable: ["antecedentes heredofamiliares"] }).join("\n");
+eq(gapReview.includes("No se pudo leer: antecedentes heredofamiliares"), true, "review: unreadable listed");
+eq(gapReview.includes("Falta: motivo de consulta, intensidad del dolor, diagnóstico, plan de tratamiento"), true, "review: gaps listed");
+const bigEval: EvaluationExtraction = { ...sampleEval, exam: { ...sampleEval.exam,
+  goniometry: Array.from({ length: 30 }, (_, i) => ({ joint: `Articulación ${i}`, movement: "flexión", right: "120°", left: "118°" })) } };
+const bigParts = formatEvaluationReview("Laura Méndez", bigEval);
+eq(bigParts.length > 1 && bigParts.every((p) => p.length <= MAX_MESSAGE - 60), true, "review: long evaluation split, each part fits");
+eq(bigParts[bigParts.length - 1].includes("*Plan de tratamiento*"), true, "review: last section kept when split");
+for (const [name, list] of Object.entries({ REGISTRATION_OPTIONS, EVAL_SOURCE_OPTIONS, PAGES_OPTIONS, EVAL_REVIEW_OPTIONS }))
+  eq(list.every((o) => !!o.icon), true, `options with icons: ${name}`);
+eq(REGISTRATION_PROMPT.length < 600 && REGISTRATION_PROMPT.includes("*nombre completo*"), true, "registration prompt");
+eq(PHOTO_PROMPT.includes("*Plan de tratamiento*"), true, "photo prompt names the last page");
+eq(evalVoiceGuide("Laura Méndez").includes("*Plan de tratamiento:*"), true, "voice guide follows the form");
+eq(formatPageAck(2), "📷 Recibí la página 2. ¿Hay más páginas?", "page ack");
 
 if (failed) {
   console.log(`${failed} check(s) failed`);
