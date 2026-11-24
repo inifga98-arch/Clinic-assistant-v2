@@ -3,7 +3,7 @@ import { zodResponseFormat } from "openai/helpers/zod";
 import { EvaluationExtraction, EvaluationRevision, RegistrationExtraction } from "../lib/ai/intake-schema.ts";
 import { mergeRevision } from "../lib/agents/therapist/note-draft.ts";
 import {
-  classifyNumber, displayPhone, formNameMismatch, reconcileReadings, evaluationGaps, isValidDate, parsePatientPhone, patientFieldsFromEvaluation,
+  classifyNumber, displayPhone, formNameMismatch, lateInputs, patientFieldsToFill, reconcileReadings, evaluationGaps, isValidDate, parsePatientPhone, patientFieldsFromEvaluation,
   type NumberOwner,
 } from "../lib/agents/therapist/intake-logic.ts";
 import {
@@ -221,6 +221,38 @@ eq(formNameMismatch(null, "Laura Méndez"), false, "name check: no name on the f
 const otherForm = formatEvaluationReview("Lucía Prueba Uno", sampleEval, { fromPhoto: true }).join(" ");
 eq(otherForm.includes("⚠️ El formato es de *Laura Méndez*, no de *Lucía Prueba Uno*"), true, "review: warns when the form names another person");
 eq(formatEvaluationReview("Laura Méndez", sampleEval).join("").includes("El formato es de"), false, "review: no warning for the same person");
+
+// ---------------------------------------------------------------- final review fixes
+// I5: a row only one read saw is a guess; row names compared like values; both unreadable lists; sex.
+const extraRow: EvaluationExtraction = { ...sampleEval, exam: { ...sampleEval.exam,
+  goniometry: [...sampleEval.exam.goniometry, { joint: "Tobillo", movement: "Inversión", right: "30°", left: "15°" }] } };
+const r5 = reconcileReadings(extraRow, sampleEval);
+eq(r5.exam.goniometry[2], { joint: "Tobillo", movement: "Inversión", right: null, left: null }, "reconcile: row only one read saw is blanked");
+eq(r5.unreadable.includes("goniometría tobillo inversión (D)"), true, "reconcile: single-read row listed");
+const noAccent: EvaluationExtraction = { ...sampleEval, exam: { ...sampleEval.exam,
+  goniometry: sampleEval.exam.goniometry.map((g) => ({ ...g, movement: g.movement.replace("ó", "o").toUpperCase() })) } };
+eq(reconcileReadings(sampleEval, noAccent).unreadable, [], "reconcile: row names match without accents or case");
+eq(reconcileReadings(sampleEval, { ...sampleEval, unreadable: ["edema"] }).unreadable, ["edema"], "reconcile: second read's unreadable kept");
+const otherSex = reconcileReadings(sampleEval, { ...sampleEval, identification: { ...sampleEval.identification, sex: "male" } });
+eq([otherSex.identification.sex, otherSex.unreadable.includes("sexo")], [null, true], "reconcile: sex compared");
+const otherRegion = reconcileReadings(sampleEval, { ...sampleEval, form_region: "upper_limb" });
+eq([otherRegion.form_region, otherRegion.unreadable.includes("tipo de formato")], [null, true], "reconcile: form region compared");
+const oneAllergy = reconcileReadings(sampleEval, { ...sampleEval, pathological: { ...sampleEval.pathological, allergies: null } });
+eq([oneAllergy.pathological.allergies, oneAllergy.unreadable.includes("alergias")], [null, true], "reconcile: history field only one read saw");
+const otherFamily = reconcileReadings(sampleEval, { ...sampleEval, family_history: [{ condition: "Diabetes", relatives: ["padre"] }] });
+eq([otherFamily.family_history, otherFamily.unreadable.includes("antecedentes heredofamiliares")], [[], true],
+  "reconcile: family history disagreement blanked");
+eq(reconcileReadings(sampleEval, { ...sampleEval, family_history: [{ condition: "diabetes", relatives: ["madre"] }] }).unreadable, [],
+  "reconcile: family history agrees ignoring case");
+// Minor 3 (re-graded): a form of another person never fills the patient's record.
+eq(patientFieldsToFill(sampleEval, "Laura Méndez").dob, "1991-03-14", "fill: same person fills");
+eq(patientFieldsToFill(sampleEval, "Lucía Prueba Uno"), { diagnosis: null, referring_doctor: null, dob: null, sex: null },
+  "fill: another person's form fills nothing");
+// I2: inputs that arrived after the extraction.
+const ins = [1, 2, 3].map((i) => ({ kind: "note" as const, text: `n${i}`, audio_url: null, received_at: `2026-11-24T10:0${i}:00Z` }));
+eq(lateInputs({ inputs: ins, extraction: null, step: "review", source: "voice", extracted_count: 2 }).map((n) => n.kind === "note" && n.text),
+  ["n3"], "late inputs: after extraction");
+eq(lateInputs({ inputs: ins, extraction: null, step: "review", source: "voice" }), [], "late inputs: none before any extraction");
 
 if (failed) {
   console.log(`${failed} check(s) failed`);

@@ -28,6 +28,7 @@ export const EVAL_SOURCE_OPTIONS: Option[] = [
 export const PAGES_OPTIONS: Option[] = [
   { id: "done", title: "Listo", icon: "✅" },
   { id: "more", title: "Otra página", icon: "➕" },
+  { id: "discard", title: "Descartar", icon: "🗑️" },
 ];
 
 export const EVAL_REVIEW_OPTIONS: Option[] = [

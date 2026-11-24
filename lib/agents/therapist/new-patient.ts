@@ -4,6 +4,7 @@ import type { AgentResult, ConversationState, TherapistContext } from "@/lib/age
 import { extractRegistration } from "@/lib/ai/intake-extract";
 import type { RegistrationExtraction } from "@/lib/ai/intake-schema";
 import type { Patient, Therapist } from "@/lib/db/types";
+import { deleteTwilioMedia } from "@/lib/whatsapp/media";
 import { matchOption, sendOptions, sendText, type Option } from "@/lib/whatsapp/send";
 import { startEvaluationFor, offerEvaluation } from "./initial-eval";
 import { classifyNumber, parsePatientPhone } from "./intake-logic";
@@ -54,6 +55,14 @@ export async function handleNewPatient(ctx: TherapistContext): Promise<AgentResu
   const c = current.context as Ctx;
   const pick = (options: Option[]) => matchOption(message.buttonPayload ?? message.body, options);
 
+  // Registration uses no photos: delete one right away (form photos go in 🩺 Valoración inicial).
+  const image = message.media.find((m) => m.contentType.startsWith("image/"));
+  if (image) {
+    await deleteTwilioMedia(image.url);
+    await sendText(phone, "📷 Aquí no uso fotos; la borré. La historia clínica va después, en 🩺 Valoración inicial.");
+    return state(step, c);
+  }
+
   switch (step) {
     case "card": {
       const choice = pick(REGISTRATION_OPTIONS);
@@ -89,7 +98,7 @@ export async function handleNewPatient(ctx: TherapistContext): Promise<AgentResu
         const patient = await reactivatePatient(c.ownerId, therapist.id);
         await sendText(phone, `✅ El expediente de *${patient.full_name}* está activo otra vez y asignado a ti.`);
         if (!patient.consent_at) await sendWelcome(phone, patient);
-        return offerEvaluation(phone, patient);
+        return offerEvaluation(phone, therapist, patient);
       }
       if (choice?.id === "cancel") {
         await sendText(phone, "Cancelado. No se cambió nada.");
@@ -189,7 +198,7 @@ async function save(ctx: TherapistContext, c: Ctx): Promise<AgentResult> {
   if (patient === "duplicate") return decide(ctx, c, ctx.therapist); // taken meanwhile: show who has it
   await sendText(phone, `✅ *${patient.full_name}* ya está en el expediente.`);
   await sendWelcome(phone, patient);
-  return offerEvaluation(phone, patient);
+  return offerEvaluation(phone, ctx.therapist, patient);
 }
 
 /** Cherub's welcome (privacy notice + reminders). Twilio reports delivery later, so say how it works. */

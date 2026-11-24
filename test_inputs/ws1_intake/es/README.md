@@ -4,14 +4,14 @@ One message per line. Run as a therapist, with no open drafts:
 
     npm run simulate -- --as inigo < test_inputs/ws1_intake/es/<script>.txt
 
-The test patients are made up: **Lucía Prueba Uno** (+52 55 0000 0101) and **Laura Méndez Ruiz**
-(+52 55 0000 0102) were registered once for testing. The scripts below don't save anything
+The test patients are made up: **Lucía Prueba Uno** (+52 55 0000 9101) and **Laura Méndez Ruiz**
+(+52 55 0000 9102) were registered once for testing. The scripts below don't save anything
 (they end in Cancelar / Descartar / Después). Form photos: `../forms/`, drawn by
 `scripts/make-test-forms.py` (synthetic, no clinic branding).
 
 | Script | What it checks | Expect |
 | --- | --- | --- |
-| `register_cancel.txt` | Registration by text | Card with +52 55 0000 0103 and the reason; Cancelar saves nothing |
+| `register_cancel.txt` | Registration by text | Card with +52 55 0000 9103 and the reason; Cancelar saves nothing |
 | `duplicate_number.txt` | A seed patient's number | "Ese número ya es de *Carlos Méndez*" with 📝 / 🩺 / 🗑️ |
 | `therapist_number.txt` | A therapist's number | "Ese número es de un terapeuta" |
 | `eval_photo.txt` | 3 pages of the MI form | Review in form order, no unreadable fields, "Revisa … contra el papel"; Descartar |

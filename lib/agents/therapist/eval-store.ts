@@ -2,25 +2,12 @@ import "server-only";
 import type { EvaluationExtraction } from "@/lib/ai/intake-schema";
 import { db } from "@/lib/db/server";
 import type { InitialEvaluation, Patient } from "@/lib/db/types";
-import { patientFieldsFromEvaluation } from "./intake-logic";
+import { patientFieldsToFill, type EvalDraft, type EvalInput } from "./intake-logic";
 
 // Flow A storage for the initial evaluation. The draft lives in initial_evaluations.draft until
 // it is confirmed; atomic writes go through supabase/migrations/0003_initial_evaluations.sql.
 
-export type EvalInput =
-  | { kind: "page"; media_url: string; content_type: string; received_at: string }
-  | { kind: "note"; text: string; audio_url: string | null; received_at: string };
-
-export type EvalStep = "choose_source" | "pages" | "recording" | "review" | "editing";
-
-export interface EvalDraft {
-  inputs: EvalInput[];
-  extraction: EvaluationExtraction | null;
-  step: EvalStep;
-  source: "photo" | "voice" | null;
-  /** Photo path: true once the pages were read and their Twilio media deleted. */
-  pages_deleted?: boolean;
-}
+export type { EvalDraft, EvalInput, EvalStep } from "./intake-logic";
 
 const EMPTY: EvalDraft = { inputs: [], extraction: null, step: "choose_source", source: null };
 
@@ -89,15 +76,26 @@ export async function evalStatus(id: string): Promise<"draft" | "confirmed" | nu
 export async function confirmEvaluation(
   id: string,
   e: EvaluationExtraction,
-  meta: { source_transcript: string | null; page_count: number | null },
+  meta: { source_transcript: string | null; page_count: number | null; patient_name: string },
 ): Promise<"saved" | "already_confirmed" | "not_found"> {
   const { error } = await db().rpc("confirm_initial_evaluation", {
     p_id: id,
-    p_eval: { data: e, ...meta },
-    p_patient: patientFieldsFromEvaluation(e),
+    p_eval: { data: e, source_transcript: meta.source_transcript, page_count: meta.page_count },
+    p_patient: patientFieldsToFill(e, meta.patient_name), // nothing when the form names another person
   });
   if (!error) return "saved";
   if (error.message.includes("already_confirmed")) return "already_confirmed";
   if (error.message.includes("draft_not_found")) return "not_found";
   throw new Error(`evaluations: could not confirm: ${error.message}`);
+}
+
+/** The therapist's open evaluation drafts (to clean up abandoned ones and their photos). */
+export async function openEvalDrafts(therapistId: string): Promise<{ id: string; draft: EvalDraft }[]> {
+  const { data, error } = await db()
+    .from("initial_evaluations")
+    .select("id, draft")
+    .eq("therapist_id", therapistId)
+    .eq("status", "draft");
+  if (error) throw new Error(`evaluations: could not list drafts: ${error.message}`);
+  return data.map((r) => ({ id: r.id as string, draft: { ...EMPTY, ...((r.draft as Partial<EvalDraft> | null) ?? {}) } }));
 }

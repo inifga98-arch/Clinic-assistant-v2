@@ -124,6 +124,23 @@ const VITAL_LABELS = {
   heart_rate: "FC",
 } as const;
 
+const HISTORY_LABELS = {
+  allergies: "alergias",
+  transfusions: "transfusiones",
+  surgeries: "antecedentes quirúrgicos",
+  orthopedic_surgeries: "quirúrgicos ortopédicos",
+  trauma: "trauma",
+  illnesses: "enfermedades",
+  medications_supplements: "medicamentos/suplementos",
+} as const;
+
+const HABIT_LABELS = {
+  substance_use: "toxicomanías",
+  activity_type: "actividad física",
+  activity_frequency: "frecuencia de actividad",
+  activity_hours_daily: "horas diarias de actividad",
+} as const;
+
 /** Compare what was read, ignoring spacing, case, accents and units ("20°" = "20", "98%" = "98"). */
 const canonical = (v: unknown) =>
   String(v ?? "")
@@ -132,28 +149,41 @@ const canonical = (v: unknown) =>
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9./]/g, "");
 const same = (a: unknown, b: unknown) => canonical(a) === canonical(b);
-const rowKey = (...parts: string[]) => parts.join(" ").toLowerCase().replace(/\s+/g, " ").trim();
+const blank = (v: unknown) => v === null || v === undefined || String(v).trim() === "";
+/** A readable label for a row: lower case, single spaces (accents kept for the therapist). */
+const rowLabel = (...parts: string[]) => parts.join(" ").toLowerCase().replace(/\s+/g, " ").trim();
 
 /**
- * Photos are read twice; where the two reads disagree on a number, date or test result, the
- * value is a guess. Keep the first read, blank every such disagreeing value and list it as
- * unreadable, so the therapist fills it in from the paper. Wording differences in free text
- * are not guesses and keep the first read.
+ * Photos are read twice; where the two reads disagree, the value is a guess. Keep the first read,
+ * blank every value the reads disagree on (numbers, dates, test results, sex, the form type),
+ * every value only one read saw (a row or a history field the other read left empty), and list
+ * them all as unreadable so the therapist fills them in from the paper. Wording differences in
+ * free text that both reads saw are not guesses and keep the first read.
  */
 export function reconcileReadings(a: EvaluationExtraction, b: EvaluationExtraction): EvaluationExtraction {
   const out: EvaluationExtraction = structuredClone(a);
   const flagged: string[] = [];
-  const check = <T>(x: T | null, y: T | null, label: string, clear: () => void) => {
-    if ((x === null || x === undefined) && (y === null || y === undefined)) return;
+  /** Exact check: any difference (including one side empty) blanks the value. */
+  const check = (x: unknown, y: unknown, label: string, clear: () => void) => {
+    if (blank(x) && blank(y)) return;
     if (!same(x, y)) {
-      clear();
+      if (!blank(x)) clear();
+      flagged.push(label);
+    }
+  };
+  /** Free text: wording may differ; only "one read saw it, the other didn't" is a guess. */
+  const presence = (x: unknown, y: unknown, label: string, clear: () => void) => {
+    if (blank(x) !== blank(y)) {
+      if (!blank(x)) clear();
       flagged.push(label);
     }
   };
 
+  check(a.form_region, b.form_region, "tipo de formato", () => (out.form_region = null));
   check(a.form_date, b.form_date, "fecha del formato", () => (out.form_date = null));
   check(a.identification.dob, b.identification.dob, "fecha de nacimiento", () => (out.identification.dob = null));
   check(a.identification.age, b.identification.age, "edad", () => (out.identification.age = null));
+  check(a.identification.sex, b.identification.sex, "sexo", () => (out.identification.sex = null));
   check(a.identification.physician.phone, b.identification.physician.phone, "teléfono del médico",
     () => (out.identification.physician.phone = null));
   check(a.identification.emergency_contact.phone, b.identification.emergency_contact.phone, "teléfono de emergencia",
@@ -162,34 +192,82 @@ export function reconcileReadings(a: EvaluationExtraction, b: EvaluationExtracti
   for (const key of Object.keys(VITAL_LABELS) as (keyof typeof VITAL_LABELS)[]) {
     check(a.vital_signs[key], b.vital_signs[key], `signos vitales (${VITAL_LABELS[key]})`, () => (out.vital_signs[key] = null));
   }
+  for (const key of Object.keys(HISTORY_LABELS) as (keyof typeof HISTORY_LABELS)[]) {
+    presence(a.pathological[key], b.pathological[key], HISTORY_LABELS[key], () => (out.pathological[key] = null));
+  }
+  for (const key of Object.keys(HABIT_LABELS) as (keyof typeof HABIT_LABELS)[]) {
+    presence(a.non_pathological[key], b.non_pathological[key], HABIT_LABELS[key], () => (out.non_pathological[key] = null));
+  }
+  presence(a.chief_complaint, b.chief_complaint, "motivo de consulta", () => (out.chief_complaint = null));
+  presence(a.diagnostic_impression, b.diagnostic_impression, "impresión diagnóstica", () => (out.diagnostic_impression = null));
+  presence(a.pt_diagnosis, b.pt_diagnosis, "diagnóstico fisioterapéutico", () => (out.pt_diagnosis = null));
 
-  const sides = (
-    rowsA: { right: unknown; left: unknown }[],
+  const familyKey = (f: EvaluationExtraction["family_history"]) =>
+    f.map((x) => `${canonical(x.condition)}:${[...x.relatives].sort().join(",")}`).sort().join("|");
+  if (familyKey(a.family_history) !== familyKey(b.family_history)) {
+    out.family_history = [];
+    flagged.push("antecedentes heredofamiliares");
+  }
+
+  const sides = <R extends { right: unknown; left: unknown }>(
+    rowsA: R[],
     rowsOut: { right: unknown; left: unknown }[],
-    keysA: string[],
-    lookupB: Map<string, { right: unknown; left: unknown }>,
-    label: (i: number) => string,
+    rowsB: R[],
+    key: (r: R) => string,
+    label: (r: R) => string,
   ) => {
+    const lookupB = new Map(rowsB.map((r) => [canonical(key(r)), r]));
     rowsA.forEach((row, i) => {
-      const other = lookupB.get(keysA[i]);
-      if (!other) return; // only one read saw this row: nothing to compare
-      check(row.right, other.right, `${label(i)} (D)`, () => (rowsOut[i].right = null));
-      check(row.left, other.left, `${label(i)} (I)`, () => (rowsOut[i].left = null));
+      const other = lookupB.get(canonical(key(row))); // undefined: only this read saw the row
+      check(row.right, other?.right ?? null, `${label(row)} (D)`, () => (rowsOut[i].right = null));
+      check(row.left, other?.left ?? null, `${label(row)} (I)`, () => (rowsOut[i].left = null));
     });
   };
-  const gonioKey = (g: { joint: string; movement: string }) => rowKey(g.joint, g.movement);
-  sides(a.exam.goniometry, out.exam.goniometry, a.exam.goniometry.map(gonioKey),
-    new Map(b.exam.goniometry.map((g) => [gonioKey(g), g])),
-    (i) => `goniometría ${rowKey(a.exam.goniometry[i].joint, a.exam.goniometry[i].movement)}`);
-  sides(a.exam.strength_mrc, out.exam.strength_mrc, a.exam.strength_mrc.map((s) => rowKey(s.muscle_or_movement)),
-    new Map(b.exam.strength_mrc.map((s) => [rowKey(s.muscle_or_movement), s])),
-    (i) => `fuerza ${rowKey(a.exam.strength_mrc[i].muscle_or_movement)}`);
-  sides(a.exam.orthopedic_tests, out.exam.orthopedic_tests, a.exam.orthopedic_tests.map((t) => rowKey(t.test)),
-    new Map(b.exam.orthopedic_tests.map((t) => [rowKey(t.test), t])),
-    (i) => `prueba ${a.exam.orthopedic_tests[i].test}`);
+  sides(a.exam.goniometry, out.exam.goniometry, b.exam.goniometry, (g) => `${g.joint} ${g.movement}`,
+    (g) => `goniometría ${rowLabel(g.joint, g.movement)}`);
+  sides(a.exam.strength_mrc, out.exam.strength_mrc, b.exam.strength_mrc, (s) => s.muscle_or_movement,
+    (s) => `fuerza ${rowLabel(s.muscle_or_movement)}`);
+  sides(a.exam.orthopedic_tests, out.exam.orthopedic_tests, b.exam.orthopedic_tests, (t) => t.test,
+    (t) => `prueba ${t.test}`);
 
-  out.unreadable = [...new Set([...a.unreadable, ...flagged])];
+  out.unreadable = [...new Set([...a.unreadable, ...b.unreadable, ...flagged])];
   return out;
+}
+
+// ---------------------------------------------------------------- what the evaluation may fill
+
+/** Patient fields to fill on confirm; none when the form names another person. */
+export function patientFieldsToFill(e: EvaluationExtraction, patientName: string): PatientFields {
+  if (formNameMismatch(e.identification.full_name, patientName)) {
+    return { diagnosis: null, referring_doctor: null, dob: null, sex: null };
+  }
+  return patientFieldsFromEvaluation(e);
+}
+
+// ---------------------------------------------------------------- evaluation draft (shape)
+
+export type EvalInput =
+  | { kind: "page"; media_url: string; content_type: string; received_at: string }
+  | { kind: "note"; text: string; audio_url: string | null; received_at: string };
+
+/** "reading": an extraction is running; anything arriving now is late. */
+export type EvalStep = "choose_source" | "pages" | "recording" | "reading" | "review" | "editing";
+
+export interface EvalDraft {
+  inputs: EvalInput[];
+  extraction: EvaluationExtraction | null;
+  step: EvalStep;
+  source: "photo" | "voice" | null;
+  /** How many inputs the current extraction was built from (unset before the first). */
+  extracted_count?: number;
+  /** Photo path: true once the pages that were read have been deleted from Twilio. */
+  pages_deleted?: boolean;
+}
+
+/** Inputs that arrived after the current extraction was made (not in it yet). */
+export function lateInputs(d: EvalDraft): EvalInput[] {
+  if (d.extracted_count === undefined) return [];
+  return d.inputs.slice(d.extracted_count);
 }
 
 // ---------------------------------------------------------------- the form names another person
