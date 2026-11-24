@@ -10,7 +10,7 @@ import {
   setEvalFields, setEvalSource, type LoadedEval,
 } from "./eval-store";
 import {
-  EVAL_REVIEW_OPTIONS, EVAL_SOURCE_OPTIONS, PAGES_OPTIONS, PHOTO_PROMPT, evalVoiceGuide, formatEvaluationReview,
+  EVAL_CONFIRM_QUESTION, EVAL_REVIEW_OPTIONS, EVAL_SOURCE_OPTIONS, PAGES_OPTIONS, PHOTO_PROMPT, evalVoiceGuide, formatEvaluationReview,
   formatPageAck,
 } from "./intake-format";
 import { evaluationGaps, lateInputs, type EvalDraft, type EvalInput } from "./intake-logic";
@@ -36,6 +36,8 @@ import { noteFrom } from "./session-note";
 
 const FLOW = "initial_eval";
 const MAX_PAGES = 6;
+/** How long a page waits for more photos of the same multi-select before acknowledging. */
+const ACK_SETTLE_MS = 2500;
 type Step = "pick_patient" | "disambiguate" | "choose_source" | "pages" | "recording" | "fixing" | "review" | "editing";
 
 interface Ctx {
@@ -210,7 +212,13 @@ async function pages(message: IncomingMessage, loaded: LoadedEval): Promise<Agen
       await sendText(phone, LATE_PAGE);
       return state("pages", { evalId });
     }
-    await sendOptions(phone, formatPageAck(count), PAGES_OPTIONS);
+    // Photos sent together arrive as separate messages: wait a moment, and only the last one to
+    // arrive answers, with the total, so the therapist gets one acknowledgement, not one per photo.
+    await new Promise((r) => setTimeout(r, ACK_SETTLE_MS));
+    const settled = await loadEvalDraft(evalId);
+    const latest = settled ? pageInputs(settled.draft).at(-1) : undefined;
+    if (latest && latest.media_url !== image.url) return state("pages", { evalId });
+    await sendOptions(phone, formatPageAck(settled ? pageInputs(settled.draft).length : count), PAGES_OPTIONS);
     return state("pages", { evalId });
   }
 
@@ -410,8 +418,9 @@ async function sendReview(phone: string, loaded: LoadedEval): Promise<void> {
   const parts = formatEvaluationReview(loaded.patient.full_name, loaded.draft.extraction!, {
     fromPhoto: loaded.draft.source === "photo",
   });
-  for (const part of parts.slice(0, -1)) await sendText(phone, part);
-  await sendOptions(phone, parts[parts.length - 1], EVAL_REVIEW_OPTIONS);
+  for (const part of parts) await sendText(phone, part);
+  // The options in their own short message: never hidden behind WhatsApp's "Leer más".
+  await sendOptions(phone, EVAL_CONFIRM_QUESTION(loaded.patient.full_name), EVAL_REVIEW_OPTIONS);
 }
 
 async function confirm(phone: string, loaded: LoadedEval): Promise<AgentResult> {
