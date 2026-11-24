@@ -4,7 +4,7 @@
 
 import type { EvaluationExtraction } from "../../ai/intake-schema";
 import type { Option } from "../../whatsapp/options";
-import { EVAL_GAP_LABELS, displayPhone, evaluationGaps } from "./intake-logic";
+import { EVAL_GAP_LABELS, displayPhone, evaluationGaps, formNameMismatch } from "./intake-logic";
 import { MAX_MESSAGE, OPTIONS_ROOM, formatDate, pack } from "./note-format";
 
 // ---------------------------------------------------------------- prompts and options
@@ -142,6 +142,9 @@ export function formatEvaluationReview(
 
   const blocks = [
     [`🩺 *Valoración inicial · ${patientName}*`, meta.length ? meta.join(" · ") : null].filter(Boolean).join("\n"),
+    formNameMismatch(id.full_name, patientName)
+      ? `⚠️ El formato es de *${id.full_name}*, no de *${patientName}*. Revisa que sea la hoja correcta antes de confirmar.`
+      : null,
     block("Ficha", [
       kv("Edad", id.age),
       id.dob ? kv("Nacimiento", dmy(id.dob)) : null,

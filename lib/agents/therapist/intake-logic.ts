@@ -3,6 +3,7 @@
 
 import type { EvaluationExtraction } from "../../ai/intake-schema";
 import { normalizePhone } from "../../whatsapp/phone";
+import { matchPatients } from "./patient-match";
 
 /**
  * A spoken or typed WhatsApp number to the stored E.164 form, or null if it isn't one.
@@ -123,8 +124,14 @@ const VITAL_LABELS = {
   heart_rate: "FC",
 } as const;
 
-const same = (a: unknown, b: unknown) =>
-  String(a ?? "").replace(/\s+/g, "").toLowerCase() === String(b ?? "").replace(/\s+/g, "").toLowerCase();
+/** Compare what was read, ignoring spacing, case, accents and units ("20°" = "20", "98%" = "98"). */
+const canonical = (v: unknown) =>
+  String(v ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9./]/g, "");
+const same = (a: unknown, b: unknown) => canonical(a) === canonical(b);
 const rowKey = (...parts: string[]) => parts.join(" ").toLowerCase().replace(/\s+/g, " ").trim();
 
 /**
@@ -183,4 +190,21 @@ export function reconcileReadings(a: EvaluationExtraction, b: EvaluationExtracti
 
   out.unreadable = [...new Set([...a.unreadable, ...flagged])];
   return out;
+}
+
+// ---------------------------------------------------------------- the form names another person
+
+/**
+ * True when the name written on the form is clearly another person than the patient the
+ * evaluation is for (a photo of the wrong patient's form). Same person if every word of the
+ * shorter name appears in the longer one, allowing accents, case and one-letter typos.
+ */
+export function formNameMismatch(formName: string | null, patientName: string): boolean {
+  if (!formName?.trim()) return false;
+  const ref = (full_name: string) => ({ id: "x", full_name, dob: null, diagnosis: null, assigned_therapist_id: null });
+  const [shorter, longer] =
+    formName.trim().split(/\s+/).length <= patientName.trim().split(/\s+/).length
+      ? [formName, patientName]
+      : [patientName, formName];
+  return matchPatients(shorter, [ref(longer)]).length === 0;
 }

@@ -14,7 +14,7 @@ Status as of 24 Nov 2026. Read with `CLAUDE.md` (rules, folder ownership) and `d
 | --- | --- | --- |
 | Patient agent (Cherub) | P-1 consent, P-3/P-4 check-ins, P-5 activity logs (incl. voice), P-6 red flags, P-8 opt-out, P-2 reminder code | A schedule that calls `/api/cron/reminders` (Vercel Hobby cron runs at most once a day); approved Twilio templates; P-7 forward questions to the therapist; P-9 pause after missed reminders; red-flag alert outside the therapist's 24 h window |
 | CRM (Marina) | Nothing yet | All of it (order below) |
-| Therapist agent (Iñigo) | Menu, Flow B (session note + home plan) | Flows A, E, F |
+| Therapist agent (Iñigo) | Menu, Flow A (new patient + initial evaluation), Flow B (session note + home plan) | Flows E, F |
 
 ## The database is the contract
 
@@ -22,7 +22,7 @@ Nobody calls anyone else's code. Each workstream writes some tables and reads ot
 
 | | Writes | Reads |
 | --- | --- | --- |
-| Therapist agent | `patients` (Flow A), `sessions`, `plans`, `plan_items` (Flow B) | Everything, for prep and handoff briefs |
+| Therapist agent | `patients`, `initial_evaluations` (Flow A), `sessions`, `plans`, `plan_items` (Flow B) | Everything, for prep and handoff briefs |
 | Patient agent | `exercise_logs`, `activity_logs`, `reminders`; `consent_at`, `reminders_opt_in` on `patients` | The active plan and its items |
 | CRM | Nothing yet (later: `session_addenda`, patient edits) | Everything, as the logged-in staff member |
 
@@ -31,6 +31,12 @@ Nobody calls anyone else's code. Each workstream writes some tables and reads ot
 - **`sessions` holds drafts.** Flow B saves a note as `status = 'draft'` while the therapist
   records it, and `'confirmed'` once they tap Confirmar (then it is locked). **The CRM and any
   brief must show only `status = 'confirmed'`.** The `draft` column is working data; ignore it.
+- **Initial evaluations come from Flow A.** `initial_evaluations.data` is the clinic's Historia
+  Clínica (MS / MI / Columna) as structured fields, read from photos of the paper form or voice
+  notes (`lib/ai/intake-schema.ts` lists every field). Show the newest row with
+  `status = 'confirmed'` on the patient page, in the form's order; drafts are working data.
+  Until a patient has one, show `patients.intake_reason` (the reason given at registration).
+  No photos are stored.
 - **New plans come from Flow B.** Confirming a note with home exercises supersedes the active
   plan and creates a new one with its `plan_items`; "sin cambios" keeps the current plan.
 - **Shared files** (`lib/agents/types.ts`, `lib/db/types.ts`, `lib/whatsapp/send.ts`,
@@ -162,7 +168,10 @@ reminders and replies stay inside the 24 h window.
 
 1. Flow B: built (design in `docs/superpowers/specs/2026-11-23-flow-b-design.md`, simulator
    scripts in `test_inputs/ws2_sessions/es/`).
-2. Flow A, then E and F.
+2. Flow A: built (design in `docs/superpowers/specs/2026-11-24-flow-a-design.md`, scripts in
+   `test_inputs/ws1_intake/es/`). Cherub: the patient will complete their own details
+   (date of birth, email, emergency contact) after consent; a spec is coming.
+3. Flows E and F.
 
 ## Access (done 24 Nov 2026)
 

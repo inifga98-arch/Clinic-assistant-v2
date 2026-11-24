@@ -3,7 +3,7 @@ import { zodResponseFormat } from "openai/helpers/zod";
 import { EvaluationExtraction, EvaluationRevision, RegistrationExtraction } from "../lib/ai/intake-schema.ts";
 import { mergeRevision } from "../lib/agents/therapist/note-draft.ts";
 import {
-  classifyNumber, displayPhone, reconcileReadings, evaluationGaps, isValidDate, parsePatientPhone, patientFieldsFromEvaluation,
+  classifyNumber, displayPhone, formNameMismatch, reconcileReadings, evaluationGaps, isValidDate, parsePatientPhone, patientFieldsFromEvaluation,
   type NumberOwner,
 } from "../lib/agents/therapist/intake-logic.ts";
 import {
@@ -203,6 +203,24 @@ eq(reconcileReadings({ ...sampleEval, unreadable: ["edema"] }, sampleEval).unrea
 eq(formatEvaluationReview("Laura Méndez", sampleEval, { fromPhoto: true }).join("").includes("Revisa fechas y números contra el papel"), true,
   "review: photo path reminds to check against the paper");
 eq(formatEvaluationReview("Laura Méndez", sampleEval).join("").includes("contra el papel"), false, "review: voice path has no paper reminder");
+
+// ---------------------------------------------------------------- Task 9 finding: units are not a disagreement
+const unitsDiffer: EvaluationExtraction = { ...sampleEval,
+  exam: { ...sampleEval.exam, goniometry: sampleEval.exam.goniometry.map((g) => ({ ...g, right: g.right?.replace("°", "") ?? null, left: ` ${g.left} ` })) },
+  vital_signs: { ...sampleEval.vital_signs, spo2: "98" } };
+const r4 = reconcileReadings(sampleEval, unitsDiffer);
+eq([r4.exam.goniometry[0].right, r4.vital_signs.spo2, r4.unreadable], ["20°", "98%", []], "reconcile: '20°' vs '20' and '98%' vs '98' agree");
+eq(reconcileReadings(sampleEval, { ...sampleEval, vital_signs: { ...sampleEval.vital_signs, blood_pressure: "110 / 70" } }).unreadable, [],
+  "reconcile: spacing in TA agrees");
+
+// ---------------------------------------------------------------- Task 9 finding: the form names another person
+eq(formNameMismatch("Laura Méndez Ruiz", "Lucía Prueba Uno"), true, "name check: different person");
+eq(formNameMismatch("Laura Méndez Ruiz", "Laura Méndez"), false, "name check: same person, extra surname");
+eq(formNameMismatch("laura mendez", "Laura Méndez"), false, "name check: accents and case");
+eq(formNameMismatch(null, "Laura Méndez"), false, "name check: no name on the form");
+const otherForm = formatEvaluationReview("Lucía Prueba Uno", sampleEval, { fromPhoto: true }).join(" ");
+eq(otherForm.includes("⚠️ El formato es de *Laura Méndez*, no de *Lucía Prueba Uno*"), true, "review: warns when the form names another person");
+eq(formatEvaluationReview("Laura Méndez", sampleEval).join("").includes("El formato es de"), false, "review: no warning for the same person");
 
 if (failed) {
   console.log(`${failed} check(s) failed`);

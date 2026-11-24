@@ -20,6 +20,7 @@ const READING_RULES = `Reglas:
   dudas, deja el campo en null y agrégalo a "unreadable" (p. ej. "fecha de nacimiento"). Un dato
   equivocado en un expediente clínico es mucho peor que uno vacío: nunca adivines ni completes.
 - Fechas en formato YYYY-MM-DD. Copia nombres, números y unidades tal como están (p. ej. "110°", "6/10" → 6).
+- Copia los nombres propios letra por letra, sin agregar ni quitar acentos (si dice "Ruiz", escribe "Ruiz").
 - form_region según el título: "HISTORIA CLÍNICA MS" = upper_limb, "MI" = lower_limb, "Columna" = spine.
 - AHF: una entrada por padecimiento marcado, con los familiares marcados.
 - Goniometría, fuerza y pruebas: una fila por movimiento o prueba con algún valor; derecha e izquierda por separado.
