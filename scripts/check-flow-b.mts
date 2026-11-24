@@ -5,7 +5,7 @@ import {
   QUESTIONS, cleanExtraction, describePlanItem, isConfirmWord, lateNotes, planHeadline, isDoneWord, isSkipWord, mergeRevision, missingItems, nextQuestion, parsePainAnswer, toNoteColumns,
   toPlanItems, type NoteDraft,
 } from "../lib/agents/therapist/note-draft.ts";
-import { MAX_MESSAGE, SOAP_GUIDE, formatAck, formatReview, formatCorrectionAck } from "../lib/agents/therapist/note-format.ts";
+import { MAX_MESSAGE, SOAP_GUIDE, formatAck, formatReview, formatCorrectionAck, recordingIntro } from "../lib/agents/therapist/note-format.ts";
 import { formatOptions } from "../lib/whatsapp/options.ts";
 import { looksLikeName, matchPatients, namesInText, patientLabel, type PatientRef } from "../lib/agents/therapist/patient-match.ts";
 
@@ -221,6 +221,14 @@ eq(SOAP_GUIDE.length < MAX_MESSAGE - 200, true, "SOAP guide fits in one message 
 for (const t of ["Valeria Soto", "ana", "María de la Luz Pérez", "Méndez"]) eq(looksLikeName(t), true, `name: ${t}`);
 for (const t of ["La dorsiflexión fue 17 grados, no 15.", "Dolor 3 de 10", "Refiere que se siente mucho mejor hoy y caminó sin dolor"])
   eq(looksLikeName(t), false, `not a name: ${t}`);
+
+// The guide appears whenever the therapist is about to record: a new note or a resumed draft.
+eq(recordingIntro("Ana López", 0).startsWith("📝 Nota de *Ana López*.\n\n"), true, "intro: new note names the patient");
+eq(recordingIntro("Ana López", 0).includes(SOAP_GUIDE), true, "intro: new note has the guide");
+eq(recordingIntro("Ana López", 2).startsWith("📝 Sigue la nota de *Ana López* (2 notas hasta ahora).\n\n"), true,
+  "intro: resumed note says how many notes, plural");
+eq(recordingIntro("Ana López", 1).includes("(1 nota hasta ahora)"), true, "intro: singular");
+eq(recordingIntro("Ana López", 2).includes(SOAP_GUIDE), true, "intro: resumed note has the guide too");
 
 if (failed) {
   console.log(`${failed} check(s) failed`);

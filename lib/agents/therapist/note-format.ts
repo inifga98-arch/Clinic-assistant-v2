@@ -44,6 +44,18 @@ export function formatDate(date: string): string {
 }
 
 /**
+ * Sent whenever the therapist is about to record: a new note (count 0) or a resumed draft.
+ * Always carries the SOAP guide, so every note is guided the same way.
+ */
+export function recordingIntro(patientName: string, count: number): string {
+  const head =
+    count === 0
+      ? `📝 Nota de *${patientName}*.`
+      : `📝 Sigue la nota de *${patientName}* (${count} ${count === 1 ? "nota" : "notas"} hasta ahora).`;
+  return `${head}\n\n${SOAP_GUIDE}`;
+}
+
+/**
  * The reply to each note. For a voice note it shows what was understood, so the therapist can
  * catch a transcription error before it reaches the record. Send all but the last body with
  * sendText and the last with sendOptions (VOICE_OPTIONS for voice, RECORDING_OPTIONS for text).
