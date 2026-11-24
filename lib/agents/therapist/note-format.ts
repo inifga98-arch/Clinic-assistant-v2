@@ -11,15 +11,29 @@ export const MAX_MESSAGE = 1600;
 const OPTIONS_ROOM = 60;
 
 export const REVIEW_OPTIONS: Option[] = [
-  { id: "confirm", title: "Confirmar" },
-  { id: "edit", title: "Editar" },
-  { id: "discard", title: "Descartar" },
+  { id: "confirm", title: "Confirmar", icon: "✅" },
+  { id: "edit", title: "Editar", icon: "✏️" },
+  { id: "discard", title: "Descartar", icon: "🗑️" },
 ];
 
 export const RECORDING_OPTIONS: Option[] = [
-  { id: "done", title: "Listo" },
-  { id: "more", title: "Agregar otra" },
+  { id: "done", title: "Listo", icon: "✅" },
+  { id: "more", title: "Agregar otra", icon: "➕" },
 ];
+
+/** After a voice note: Corregir lets the therapist fix what the transcription got wrong. */
+export const VOICE_OPTIONS: Option[] = [...RECORDING_OPTIONS, { id: "fix", title: "Corregir", icon: "✏️" }];
+
+/** Sent when a note starts, so notes come in complete and in SOAP order. */
+export const SOAP_GUIDE = [
+  "Para una nota completa, cuéntame en este orden:",
+  "🗣️ *S – Subjetivo:* qué refiere el paciente y su dolor de hoy (0 a 10).",
+  "🔍 *O – Objetivo:* lo que mediste (arcos, fuerza, pruebas) y el tratamiento que diste.",
+  "🧠 *A – Valoración:* cómo va y por qué.",
+  "📋 *P – Plan:* visitas por semana y ejercicios para casa (series × repeticiones, frecuencia), o «sin cambios».",
+  "",
+  "Manda una nota de voz o varias, o escríbela. Cuando termines, responde *Listo*.",
+].join("\n");
 
 const MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
@@ -29,8 +43,21 @@ export function formatDate(date: string): string {
   return `${d} ${MONTHS[m - 1]} ${y}`;
 }
 
-export function formatAck(patientName: string, count: number): string {
-  return `Anotado para ${patientName} (nota ${count}).`;
+/**
+ * The reply to each note. For a voice note it shows what was understood, so the therapist can
+ * catch a transcription error before it reaches the record. Send all but the last body with
+ * sendText and the last with sendOptions (VOICE_OPTIONS for voice, RECORDING_OPTIONS for text).
+ */
+export function formatAck(patientName: string, count: number, transcript?: string): string[] {
+  if (!transcript) return [`Anotado para ${patientName} (nota ${count}).`];
+  return pack(
+    [`🎙️ Anotado para ${patientName} (nota ${count}). Esto entendí:`, `«${transcript.trim()}»`, "\n¿Algo mal? Elige *Corregir*."],
+    MAX_MESSAGE - OPTIONS_ROOM,
+  );
+}
+
+export function formatCorrectionAck(count: number): string {
+  return `✏️ Corrección anotada para la nota ${count}.`;
 }
 
 export interface ReviewInput {

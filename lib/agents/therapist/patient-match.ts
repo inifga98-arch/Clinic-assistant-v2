@@ -31,6 +31,15 @@ export function matchPatients(query: string, patients: PatientRef[]): PatientRef
 }
 
 /**
+ * Could this typed text be a patient's name (rather than a note)? Short, no digits, few words.
+ * "La dorsiflexión fue 17 grados" is a note even though it is short.
+ */
+export function looksLikeName(text: string): boolean {
+  const t = text.trim();
+  return t.length > 0 && t.length <= 40 && !/\d/.test(t) && t.split(/\s+/).length <= 5;
+}
+
+/**
  * Patients named in a note ("Sesión con Carlos Méndez…"). Full names first; if none appear,
  * first names as whole words, which may return several (the caller then asks).
  */

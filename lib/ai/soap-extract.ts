@@ -21,6 +21,7 @@ const RULES = `Reglas:
 - pain_nprs solo si dijo un número de 0 a 10.
 - keep_current_plan = true solo si dijo que el plan de casa no cambia ("sin cambios", "sigue igual") y no dictó ejercicios; entonces las listas van vacías. Si dictó ejercicios o actividades, keep_current_plan = false aunque sean los mismos de antes.
 - Si cambió solo una parte del plan actual ("lo mismo pero 4 series"), copia el plan actual con ese cambio, con keep_current_plan = false.
+- Si una nota dice "Corrección de la nota N: …", esa corrección reemplaza lo que la nota N decía sobre ese punto.
 - frequency_per_week: diario = 7. days_of_week solo si nombró días (0 = domingo … 6 = sábado).`;
 
 function context(ctx: NoteContext): string {

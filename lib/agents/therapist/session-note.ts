@@ -12,12 +12,14 @@ import {
   QUESTIONS, cleanExtraction, isConfirmWord, isDoneWord, isSkipWord, lateNotes, mergeRevision, missingItems, nextQuestion, parsePainAnswer,
   toNoteColumns, toPlanItems, type MissingItem, type NoteDraft, type SessionNoteStep, type TranscriptEntry,
 } from "./note-draft";
-import { RECORDING_OPTIONS, REVIEW_OPTIONS, formatAck, formatReview } from "./note-format";
+import {
+  RECORDING_OPTIONS, REVIEW_OPTIONS, SOAP_GUIDE, VOICE_OPTIONS, formatAck, formatCorrectionAck, formatReview,
+} from "./note-format";
 import {
   activePlanLines, appendTranscript, confirmNote, createDraft, deleteDraft, draftStatus, latestDraft, loadDraft, setDraftFields,
   type LoadedDraft,
 } from "./note-store";
-import { matchPatients, namesInText, patientLabel, type PatientRef } from "./patient-match";
+import { looksLikeName, matchPatients, namesInText, patientLabel, type PatientRef } from "./patient-match";
 import { clinicPatients, recentPatients } from "./patient-picker";
 
 // Flow B: session note + home plan (T-3 to T-8). Owner: Person 1.
@@ -25,23 +27,25 @@ import { clinicPatients, recentPatients } from "./patient-picker";
 // model only transcribes, extracts the note and applies one change at a time.
 
 const FLOW = "session_note";
-type Step = SessionNoteStep | "resume_offer";
+// "fixing" (waiting for the corrected text of the last voice note) lives only in the conversation.
+type Step = SessionNoteStep | "resume_offer" | "fixing";
 
 interface NoteContextState {
   sessionId?: string;
   candidates?: PatientRef[];
   pending?: TranscriptEntry[]; // notes sent before the patient was chosen, oldest first
   resumeId?: string;
+  fixOf?: number; // the note number being corrected (step "fixing")
 }
 
 const RESUME_OPTIONS: Option[] = [
-  { id: "resume", title: "Continuar" },
-  { id: "discard_old", title: "Descartarla" },
-  { id: "other", title: "Nota de otro paciente" },
+  { id: "resume", title: "Continuar", icon: "▶️" },
+  { id: "discard_old", title: "Descartarla", icon: "🗑️" },
+  { id: "other", title: "Nota de otro paciente", icon: "👤" },
 ];
 const YES_NO: Option[] = [
-  { id: "yes", title: "Sí" },
-  { id: "no", title: "No" },
+  { id: "yes", title: "Sí", icon: "✅" },
+  { id: "no", title: "No", icon: "❌" },
 ];
 const GREETINGS = new Set(["hola", "buenas", "buenos dias", "buenas tardes", "buenas noches", "hi", "hello"].map(normalize));
 /** Longer than this at the picker, a text is a note rather than a name. */
@@ -125,6 +129,7 @@ export async function handleSessionNote(ctx: TherapistContext): Promise<AgentRes
     }
 
     case "recording":
+    case "fixing":
     case "asking":
     case "review":
     case "editing": {
@@ -132,6 +137,7 @@ export async function handleSessionNote(ctx: TherapistContext): Promise<AgentRes
       const loaded = await loadDraft(c.sessionId);
       if (!loaded) return gone(phone, c.sessionId);
       if (step === "recording") return recording(message, loaded);
+      if (step === "fixing") return fixing(message, loaded, c.fixOf ?? loaded.draft.transcripts.length);
       if (step === "asking") return asking(message, loaded);
       return reviewOrEdit(message, loaded, step);
     }
@@ -173,7 +179,7 @@ async function pickPatient(ctx: TherapistContext, c: NoteContextState): Promise<
     return beginDraft(phone, therapist, picked, c.pending);
   }
 
-  if (!hasAudio && message.body.trim().length <= NAME_MAX_CHARS) {
+  if (!hasAudio && looksLikeName(message.body)) {
     const query = message.body.trim();
     const hits = matchPatients(query, await clinicPatients(therapist.clinic_id));
     if (hits.length === 1) return beginDraft(phone, therapist, hits[0], c.pending);
@@ -212,7 +218,7 @@ async function askWhich(phone: string, candidates: PatientRef[], keptNote = fals
 /** While asking which patient, a voice note or a long text is another note: keep it, never drop it. */
 async function keepIfNote(message: IncomingMessage): Promise<TranscriptEntry | null> {
   const hasAudio = message.media.some((m) => m.contentType.startsWith("audio/"));
-  if (!hasAudio && message.body.trim().length <= NAME_MAX_CHARS) return null;
+  if (!hasAudio && looksLikeName(message.body)) return null;
   return noteFrom(message);
 }
 
@@ -226,13 +232,11 @@ async function beginDraft(
   if (pending.length) {
     let count = 0;
     for (const note of pending) count = await appendTranscript(sessionId, note);
-    await sendOptions(phone, formatAck(patient.full_name, count), RECORDING_OPTIONS);
+    // One voice note: show what was understood. Several: a plain ack (the review shows them all).
+    const only = pending.length === 1 ? pending[0] : null;
+    await sendAck(phone, patient.full_name, count, only?.audio_url ? only.text : undefined);
   } else {
-    await sendText(
-      phone,
-      `Adelante con *${patient.full_name}*. Cuéntame cómo está, qué mediste e hiciste, tu valoración y el plan. ` +
-        "Puedes mandar varias notas.",
-    );
+    await sendText(phone, `📝 Nota de *${patient.full_name}*.\n\n${SOAP_GUIDE}`);
   }
   return state("recording", { sessionId });
 }
@@ -242,7 +246,16 @@ async function beginDraft(
 async function recording(message: IncomingMessage, loaded: LoadedDraft): Promise<AgentResult> {
   const phone = message.phone;
   const sessionId = loaded.session.id;
-  const pick = matchOption(message.buttonPayload ?? message.body, RECORDING_OPTIONS);
+  const pick = matchOption(message.buttonPayload ?? message.body, VOICE_OPTIONS);
+  if (pick?.id === "fix") {
+    const last = loaded.draft.transcripts.length;
+    if (!last) {
+      await sendText(phone, "Aún no tengo ninguna nota que corregir. Mándala por voz o texto.");
+      return state("recording", { sessionId });
+    }
+    await sendText(phone, `✏️ ¿Qué dijiste en realidad en la nota ${last}? Escríbelo o mándalo otra vez por voz.`);
+    return state("fixing", { sessionId, fixOf: last });
+  }
   if (pick?.id === "more") {
     await sendText(phone, "Adelante.");
     return state("recording", { sessionId });
@@ -265,8 +278,31 @@ async function recording(message: IncomingMessage, loaded: LoadedDraft): Promise
     await sendText(phone, "Recibí otra nota; la agrego a la nota antes de guardar.");
     return state(now.draft.step, { sessionId });
   }
-  await sendOptions(phone, formatAck(loaded.patient.full_name, count), RECORDING_OPTIONS);
+  await sendAck(phone, loaded.patient.full_name, count, note.audio_url ? note.text : undefined);
   return state("recording", { sessionId });
+}
+
+/** The corrected text for a note: stored as its own note so the extraction applies it. */
+async function fixing(message: IncomingMessage, loaded: LoadedDraft, fixOf: number): Promise<AgentResult> {
+  const phone = message.phone;
+  const sessionId = loaded.session.id;
+  const note = await noteFrom(message);
+  if (!note || !note.text.trim()) {
+    await sendText(phone, "No pude escuchar tu nota de voz. ¿Me escribes la corrección?");
+    return state("fixing", { sessionId, fixOf });
+  }
+  if (isDoneWord(note.text)) return processNotes(phone, loaded); // changed their mind: nothing to fix
+  await appendTranscript(sessionId, { ...note, text: `Corrección de la nota ${fixOf}: ${note.text}` });
+  const echo = note.audio_url ? `\n«${note.text.trim()}»` : "";
+  await sendOptions(phone, `${formatCorrectionAck(fixOf)}${echo}`, RECORDING_OPTIONS);
+  return state("recording", { sessionId });
+}
+
+/** Ack a note; a voice note shows its transcription and offers Corregir. */
+async function sendAck(phone: string, patientName: string, count: number, transcript?: string): Promise<void> {
+  const parts = formatAck(patientName, count, transcript);
+  for (const part of parts.slice(0, -1)) await sendText(phone, part);
+  await sendOptions(phone, parts[parts.length - 1], transcript ? VOICE_OPTIONS : RECORDING_OPTIONS);
 }
 
 async function processNotes(phone: string, loaded: LoadedDraft): Promise<AgentResult> {
