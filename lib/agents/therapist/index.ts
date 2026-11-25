@@ -6,13 +6,15 @@ import { handleNewPatient, startNewPatient } from "./new-patient";
 import { NEXT_FLOW } from "./next-step";
 import { DONE_TEXT, NEXT_OPTIONS, type NextStepKind } from "./next-step-format";
 import { getPatient } from "./patient-store";
+import { handlePrep, startPrep } from "./prep";
 import { handleSessionNote, startSessionNote, startSessionNoteFor } from "./session-note";
 
 // Therapist agent. Owner: Person 1. Flows A (new patient), B (session note + plan),
 // E (prep a session), F (handoff). See docs/prd.md "Happy flows" and "Therapist agent".
 //
 // Shows the menu (T-1) and hands each choice to its flow (one file per flow in this folder).
-// Built: Flow A (new-patient.ts, initial-eval.ts), Flow B (session-note.ts). Still placeholders: E, F.
+// Built: Flow A (new-patient.ts, initial-eval.ts), Flow B (session-note.ts), Flow E (prep.ts).
+// Still a placeholder: F.
 
 export const MENU: Option[] = [
   { id: "new_patient", title: "Nuevo paciente", icon: "🆕" },
@@ -43,7 +45,8 @@ export async function handleTherapistMessage(ctx: TherapistContext): Promise<Age
     if (choice.id === "session_note") return startSessionNote(ctx);
     if (choice.id === "new_patient") return startNewPatient(ctx);
     if (choice.id === "initial_eval") return startInitialEval(ctx);
-    // TODO(Person 1): flows E and F.
+    if (choice.id === "prep") return startPrep(ctx);
+    // TODO(Person 1): flow F.
     await sendText(message.phone, `«${choice.title}» todavía está en construcción.`);
     return { nextState: null };
   }
@@ -62,6 +65,7 @@ export async function handleTherapistMessage(ctx: TherapistContext): Promise<Age
       const patient = await getPatient(String(state.context.patientId ?? ""));
       if (patient) return startSessionNoteFor(ctx, patient);
     }
+    if (pick?.id === "prep_other") return startPrep(ctx);
     if (pick) return startSessionNote(ctx);
     return handleTherapistMessage({ ...ctx, state: null });
   }
@@ -69,6 +73,7 @@ export async function handleTherapistMessage(ctx: TherapistContext): Promise<Age
   if (state?.flow === "session_note") return handleSessionNote(ctx);
   if (state?.flow === "new_patient") return handleNewPatient(ctx);
   if (state?.flow === "initial_eval") return handleInitialEval(ctx);
+  if (state?.flow === "prep") return handlePrep(ctx);
 
   if (state) {
     await sendText(message.phone, "Ese paso todavía está en construcción. Escribe *menu* para empezar de nuevo.");
