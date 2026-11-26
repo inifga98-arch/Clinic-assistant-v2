@@ -129,8 +129,13 @@ export function buildRecord(r: RecordData): RecordEntry[] {
     out.push({ label, text: pl.lines.join("; ") || "Sin ejercicios ni actividades." });
   }
 
+  // Adherence runs while there is a plan: through yesterday, or until the last plan ended
+  // (a discharged patient shouldn't read as weeks of "sin respuesta").
   const from = plans[0]?.start ?? null;
-  for (const w of weeklyAdherence(r.exerciseLogs, r.items, from, r.today)) {
+  const active = plans.some((pl) => !pl.end);
+  const lastEnd = plans.reduce<string | null>((m, pl) => (pl.end && (!m || pl.end > m) ? pl.end : m), null);
+  const until = active || !lastEnd ? r.today : lastEnd < r.today ? lastEnd : r.today;
+  for (const w of weeklyAdherence(r.exerciseLogs, r.items, from, until)) {
     out.push({ label: `semana del ${shortDate(w.weekStart)}`, text: weekText(w.summary, w.days) });
   }
 

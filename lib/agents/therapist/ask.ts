@@ -4,8 +4,9 @@ import { answerFromRecord, type AskTurn } from "@/lib/ai/ask-record";
 import { transcribeVoiceNote } from "@/lib/ai/transcribe";
 import { deleteTwilioMedia } from "@/lib/whatsapp/media";
 import { sendOptions, sendText } from "@/lib/whatsapp/send";
-import { ASK_OPTIONS, ASK_PROMPT, askIntro, formatAnswer, groundedStatements, isSmallTalk } from "./ask-format";
+import { ASK_OPTIONS, ASK_PROMPT, askIntro, formatAnswer, groundedStatements, groundedSuggestion, isSmallTalk } from "./ask-format";
 import { getPatient } from "./patient-store";
+import { shortDate } from "./prep-format";
 import { buildRecord, recordText } from "./record-format";
 import { loadRecord } from "./record-store";
 
@@ -52,7 +53,7 @@ export async function handleAsk(ctx: TherapistContext): Promise<AgentResult> {
   let question = message.body.trim();
   if (audio) {
     try {
-      question = [question, (await transcribeVoiceNote(audio.url)).trim()].filter(Boolean).join(" ");
+      question = [question, (await transcribeVoiceNote(audio.url, { timeoutMs: 20_000 })).trim()].filter(Boolean).join(" ");
     } catch (err) {
       console.error("[ask] transcription failed", message.sid, err);
       await sendText(phone, "No pude escuchar tu nota de voz. ¿Me escribes la pregunta?");
@@ -66,16 +67,23 @@ export async function handleAsk(ctx: TherapistContext): Promise<AgentResult> {
 
   const patient = await getPatient(current.patientId);
   if (!patient) return lost(phone);
-  const entries = buildRecord(await loadRecord(patient));
+  const data = await loadRecord(patient);
+  const entries = buildRecord(data);
+  const record = recordText(entries);
 
   let answer: string;
   try {
-    const raw = await answerFromRecord(recordText(entries), current.history, question);
+    const raw = await answerFromRecord(record, current.history, question, shortDate(data.today));
     const statements = groundedStatements(raw.statements, entries);
-    if (statements.length < raw.statements.length) {
-      console.warn("[ask] dropped ungrounded statements", patient.id, raw.statements.length - statements.length);
+    // The opinion may propose new loads, but a date or measure it quotes must be in the record.
+    const suggestion = groundedSuggestion(raw.suggestion, record);
+    if (statements.length < raw.statements.length || (raw.suggestion && !suggestion)) {
+      console.warn("[ask] dropped ungrounded lines", patient.id, {
+        statements: raw.statements.length - statements.length,
+        suggestion: raw.suggestion && !suggestion ? raw.suggestion : null,
+      });
     }
-    answer = formatAnswer(statements, raw.suggestion);
+    answer = formatAnswer(statements, suggestion, raw.statements.length > 0 && statements.length === 0);
   } catch (err) {
     console.error("[ask] answer failed", patient.id, err);
     await sendOptions(phone, `No pude responder ahora. Intenta de nuevo en un momento.\n\n${ASK_PROMPT}`, ASK_OPTIONS);

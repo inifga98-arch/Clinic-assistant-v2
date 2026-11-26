@@ -1,7 +1,7 @@
 // "Ask about a patient" pure-logic checks (no network, no DB). Run: npm run check
 import { zodResponseFormat } from "openai/helpers/zod";
 import { AskAnswerSchema } from "../lib/ai/ask-schema.ts";
-import { ASK_OPTIONS, askIntro, formatAnswer, groundedStatements, isQuestion } from "../lib/agents/therapist/ask-format.ts";
+import { ASK_OPTIONS, askIntro, formatAnswer, groundedStatements, groundedSuggestion, isQuestion } from "../lib/agents/therapist/ask-format.ts";
 import { buildRecord, recordText, weeklyAdherence, type RecordData } from "../lib/agents/therapist/record-format.ts";
 
 let failed = 0;
@@ -119,6 +119,34 @@ eq(
 const twins = [{ label: "paciente", text: "x" }, { label: "registro 25 nov", text: "correr 25 min" }, { label: "registro 25 nov", text: "correr 10 min" }];
 eq(groundedStatements([{ text: "Corrió dos veces.", sources: [2, 3] }], twins), [], "answers: number words still dropped");
 eq(groundedStatements([{ text: "Corrió el 25 nov.", sources: [2, 3] }], twins)[0]?.sources, ["registro 25 nov"], "answers: two entries with the same label shown once");
+
+// review fixes: numbers keep their meaning, relative dates, quotes, sources cap
+const g = (text: string, sources: number[], list = small) => groundedStatements([{ text, sources }], list).map((x) => x.text);
+eq(g("Lleva 10 sesiones.", [3]), [], "guard: the 10 of a 3/10 score is not a plain 10");
+eq(g("El dolor era 3 de 10 el 6 nov.", [2]), [], "guard: 'N de 10' is a score and must match one");
+eq(g("El dolor bajó a 3 de 10.", [3]), ["El dolor bajó a 3 de 10."], "guard: 'N de 10' matches the score N/10");
+eq(g("Flexión de 115 grados.", [3]), ["Flexión de 115 grados."], "guard: 'N grados' matches N°");
+eq(g("Corrió ayer con dolor.", [3]), [], "guard: relative dates are dropped (ayer)");
+eq(g("Hace 3 días tuvo dolor.", [3]), [], "guard: relative dates are dropped (hace N)");
+const quoted = [{ label: "paciente", text: "x" }, { label: "nota 20 nov", text: "A: Debe evitar correr. Prioridad: fuerza." }, { label: "nota 22 nov", text: "Hizo los dos ejercicios." }];
+eq(g("Debe evitar correr.", [2], quoted), ["Debe evitar correr."], "guard: advice quoted from the record stays");
+eq(g("Hizo los dos ejercicios.", [3], quoted), ["Hizo los dos ejercicios."], "guard: a number word that is in the cited entry stays");
+const five = [1, 2, 3, 4, 5].map((n) => ({ label: `nota ${n} nov`, text: `Dolor ${n}/10.` }));
+eq(g("Dolor 5/10.", [1, 2, 3, 4, 5], five), [], "guard: at most 3 sources per statement count");
+eq(groundedStatements([{ text: "Dolor 1/10.", sources: [1, 2, 3, 4, 5] }], five)[0].sources.length, 3, "guard: at most 3 sources shown");
+const longStmt = `${"palabra ".repeat(30)}dolor 3/10 ${"palabra ".repeat(10)}`;
+eq(g(longStmt, [3])[0].endsWith("palabra…"), true, "answers: long statements are cut between words");
+eq(formatAnswer([], null, true), "📂 No pude confirmarlo en el expediente.", "answers: statements were dropped, so don't claim the record lacks it");
+const rec = recordText(small);
+eq(groundedSuggestion("como tuvo dolor 9/10 el lunes, bajar la carga", rec), null, "suggestion: an invented score is dropped");
+eq(groundedSuggestion("revisar desde el 21 nov", rec), null, "suggestion: an invented date is dropped");
+eq(groundedSuggestion("si tolera sin dolor, progresar a 4 series", rec), "si tolera sin dolor, progresar a 4 series", "suggestion: a proposed load is an opinion and stays");
+eq(isQuestion("nota para Laura de hoy"), false, "after the brief, 'nota …' is not a question");
+eq(
+  buildRecord({ ...data, plans: [{ start: "2026-11-06", end: "2026-11-20", lines: [] }] }).filter((e) => e.label.startsWith("semana")).map((e) => e.label),
+  ["semana del 2 nov", "semana del 9 nov", "semana del 16 nov"],
+  "record: no adherence weeks after the last plan ended",
+);
 
 const answer = formatAnswer(kept, "si hoy tolera la sentadilla sin dolor, progresar a 4 series");
 eq(answer.split("\n"), [

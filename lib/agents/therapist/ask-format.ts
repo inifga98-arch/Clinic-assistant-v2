@@ -3,7 +3,7 @@
 
 import type { Option } from "../../whatsapp/options";
 import { normalize } from "../patient/signals";
-import { groundedLine } from "./prep-logic";
+import { groundedLine, groundedOpinion } from "./prep-logic";
 import type { RecordEntry } from "./record-format";
 
 export const ASK_OPTIONS: Option[] = [
@@ -13,6 +13,10 @@ export const ASK_OPTIONS: Option[] = [
 
 export const ASK_PROMPT = "Escribe o di otra pregunta, o:";
 export const NOT_IN_RECORD = "📂 No lo encuentro en el expediente.";
+/** The model answered from the record but nothing passed the checks: don't claim the record lacks it. */
+export const NOT_CONFIRMED = "📂 No pude confirmarlo en el expediente.";
+/** A statement counts at most this many sources (citing everything would allow any number). */
+const MAX_SOURCES = 3;
 export const SUGGESTION_LABEL = "💡 *Sugerencia de la IA (no es del expediente):*";
 
 const MAX_STATEMENTS = 6;
@@ -21,7 +25,13 @@ const ADVICE = /\b(debe|deben|deber[ií]a|deber[ií]an|se recomienda|recomiendo|
 /** The answer goes with ASK_PROMPT and the options in one message (1,600 characters). */
 export const ANSWER_MAX = 1400;
 
-const clip = (t: string, max: number) => (t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t);
+/** Cut between words, never inside a value like "3/10". */
+const clip = (t: string, max: number) => {
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max - 1);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > max / 2 ? cut.slice(0, space) : cut).trimEnd().replace(/[,;:]$/, "")}…`;
+};
 const sentence = (t: string) => {
   const s = t.trim().replace(/[.;\s]+$/, "");
   return s ? `${s}.` : "";
@@ -44,7 +54,13 @@ export function isSmallTalk(text: string): boolean {
 export function isQuestion(text: string): boolean {
   const t = text.trim();
   if (!t || isSmallTalk(t)) return false;
+  if (/^nota\b/i.test(normalize(t))) return false; // "nota para Laura…" is about a session note
   return /[?¿]/.test(t) || t.split(/\s+/).length >= 3;
+}
+
+/** The 💡 suggestion, unless it states a record fact (date, score, degrees) that isn't in the record. */
+export function groundedSuggestion(suggestion: string | null | undefined, recordText: string): string | null {
+  return groundedOpinion(suggestion, recordText);
 }
 
 /**
@@ -57,9 +73,15 @@ export function groundedStatements(
 ): { text: string; sources: string[] }[] {
   const out: { text: string; sources: string[] }[] = [];
   for (const s of statements) {
-    const ids = [...new Set(s.sources)].filter((n) => Number.isInteger(n) && n >= 1 && n <= entries.length).sort((a, b) => a - b);
-    if (!ids.length || ADVICE.test(s.text)) continue;
+    const ids = [...new Set(s.sources)]
+      .filter((n) => Number.isInteger(n) && n >= 1 && n <= entries.length)
+      .slice(0, MAX_SOURCES)
+      .sort((a, b) => a - b);
+    if (!ids.length) continue;
     const cited = ids.map((i) => `[${entries[i - 1].label}] ${entries[i - 1].text}`).join("\n");
+    // Advice phrased as a fact goes to the suggestion, unless it is quoted from the record ("A: Debe evitar correr").
+    const advice = s.text.match(ADVICE)?.[0];
+    if (advice && !cited.toLowerCase().includes(advice.toLowerCase())) continue;
     const text = groundedLine(s.text, cited);
     if (text) out.push({ text: clip(sentence(text), 220), sources: [...new Set(ids.map((i) => entries[i - 1].label))] });
     if (out.length === MAX_STATEMENTS) break;
@@ -68,10 +90,15 @@ export function groundedStatements(
 }
 
 /** The answer: what the record says (with sources), then the AI's suggestion, always labelled. */
-export function formatAnswer(statements: { text: string; sources: string[] }[], suggestion: string | null): string {
+export function formatAnswer(
+  statements: { text: string; sources: string[] }[],
+  suggestion: string | null,
+  /** The model gave record statements but none passed the checks. */
+  allDropped = false,
+): string {
   const lines = statements.length
     ? ["📂 *Según el expediente:*", ...statements.map((s) => `• ${s.text} (${s.sources.join("; ")})`)]
-    : [NOT_IN_RECORD];
+    : [allDropped ? NOT_CONFIRMED : NOT_IN_RECORD];
   const idea = suggestion?.trim();
   if (idea) {
     const text = sentence(clip(idea, 300)).replace(/^\p{Lu}(?=\p{Ll})/u, (c) => c.toLowerCase());

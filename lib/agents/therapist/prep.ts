@@ -73,7 +73,7 @@ export async function handlePrep(ctx: TherapistContext): Promise<AgentResult> {
   let query = message.body.trim();
   if (audio) {
     try {
-      query = (await transcribeVoiceNote(audio.url)).trim();
+      query = (await transcribeVoiceNote(audio.url, { timeoutMs: 20_000 })).trim();
     } catch (err) {
       console.error("[prep] transcription failed", message.sid, err);
       await sendText(phone, "No pude escuchar tu nota de voz. ¿Me escribes el nombre del paciente?");

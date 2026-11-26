@@ -11,7 +11,7 @@ import { openai } from "./openai";
 const SYSTEM = `Eres el asistente clínico de un fisioterapeuta en México. Respondes sus preguntas sobre el expediente de un paciente.
 Recibes el expediente en entradas numeradas ([etiqueta] texto), las preguntas anteriores de esta conversación y la pregunta nueva.
 Devuelve:
-- statements: lo que dice el expediente para responder, en frases cortas (máximo 25 palabras cada una, máximo 5 frases). En "sources" pon los números de las entradas en que se basa cada frase. Copia números, escalas y fechas exactamente como aparecen en esas entradas (fechas como «20 nov»). Nada que no esté en las entradas citadas. No escribas la fuente ni la fecha entre paréntesis al final de la frase: el sistema agrega la fuente. Si la pregunta es sobre qué hacer, pon aquí los datos del expediente que importan para decidir (plan actual, cumplimiento y comentarios del paciente, dolor, alertas). Si el expediente no tiene nada relacionado, deja statements vacío; no adivines.
+- statements: lo que dice el expediente para responder, en frases cortas (máximo 25 palabras cada una, máximo 5 frases). En "sources" pon los números de las entradas en que se basa cada frase. Copia números, escalas y fechas exactamente como aparecen en esas entradas (fechas como «20 nov»). Nada que no esté en las entradas citadas. No escribas la fuente ni la fecha entre paréntesis al final de la frase: el sistema agrega la fuente. Usa fechas absolutas («25 nov»), nunca «ayer», «hoy», «la semana pasada» ni «hace N días». Copia los valores como en el expediente (dolor «3/10», grados «115°»). Si la pregunta es sobre qué hacer, pon aquí los datos del expediente que importan para decidir (plan actual, cumplimiento y comentarios del paciente, dolor, alertas). Si el expediente no tiene nada relacionado, deja statements vacío; no adivines.
 - suggestion: tu opinión clínica breve (máximo 40 palabras) solo si la pregunta pide qué hacer o una opinión, o si ves algo en el expediente que el terapeuta debería considerar para esta pregunta; si no, null. Es una sugerencia para el terapeuta, razonada con el expediente, nunca un diagnóstico definitivo.
 Español técnico de México, directo.`;
 
@@ -20,7 +20,8 @@ export interface AskTurn {
   a: string;
 }
 
-export async function answerFromRecord(record: string, history: AskTurn[], question: string): Promise<AskAnswer> {
+/** `today`: the clinic date as the record writes dates ("26 nov"), so "¿qué pasó ayer?" can be answered with real dates. */
+export async function answerFromRecord(record: string, history: AskTurn[], question: string, today: string): Promise<AskAnswer> {
   const previous = history.length
     ? `Preguntas anteriores:\n${history.map((t) => `P: ${t.q}\nR: ${t.a}`).join("\n\n")}\n\n`
     : "";
@@ -29,7 +30,7 @@ export async function answerFromRecord(record: string, history: AskTurn[], quest
       model: optionalEnv("OPENAI_EXTRACT_MODEL", "gpt-4.1"),
       messages: [
         { role: "system", content: SYSTEM },
-        { role: "user", content: `Expediente:\n${record}\n\n${previous}Pregunta: ${question}` },
+        { role: "user", content: `Hoy: ${today}\n\nExpediente:\n${record}\n\n${previous}Pregunta: ${question}` },
       ],
       response_format: zodResponseFormat(AskAnswerSchema, "ask_answer"),
     },

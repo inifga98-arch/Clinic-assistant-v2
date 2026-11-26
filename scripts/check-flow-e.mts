@@ -96,6 +96,7 @@ eq(groundedLine("Subir a quince minutos.", "1. Correr 25 min."), null, "guard: n
 eq(groundedLine("Volver a 20.", "1. Última nota (20 nov): dolor 3/10."), null, "guard: the date's day is not an allowed plain number");
 eq(groundedLine("Desde el 20 de noviembre.", "1. Última nota (20 nov): dolor 3/10."), "Desde el 20 de noviembre.", "guard: a date that is in the facts stays");
 eq(groundedLine("Desde el 21 nov.", "1. Última nota (20 nov): dolor 3/10."), null, "guard: a date not in the facts is dropped");
+eq(groundedLine("Hizo 3 de marcha.", "1. Caminata: 3 vueltas de marcha."), "Hizo 3 de marcha.", "guard: 'de marcha' is not a month");
 eq(groundedLine("Revisar dolor al correr más de 20 minutos.", "1. Actividad: correr 25 min, dolor 5/10 desde el min 20"), "Revisar dolor al correr más de 20 minutos.", "guard: a plain number in the facts stays");
 eq(groundedLine("Mantener 3×10.", "1. Plan: Sentadilla en pared 3×10, diario"), "Mantener 3×10.", "guard: sets × reps that match stay");
 eq(groundedLine("Subir a 4×10.", "1. Plan: Sentadilla en pared 3×10, diario. 2. 4 días"), null, "guard: changed sets × reps are dropped");
