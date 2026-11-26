@@ -130,27 +130,30 @@ const unitTokens = (text: string) => (text.match(UNIT_TOKEN) ?? []).map((t) => t
 const NUMBER_WORDS =
   /\b(dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|diecis[eé]is|diecisiete|dieciocho|diecinueve|veinte|veinti\w+|treinta|cuarenta|cincuenta|sesenta|noventa|cien|ciento)\b/i;
 
-/** The facts without the list's own "1." numbering and without the day of a date ("20 nov"). */
-function cleanFacts(factsText: string): string {
-  return factsText
-    .replace(/^\s*\d+\.\s/gm, "")
-    .replace(/\b\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\b/gi, "");
-}
+/** A day and month: "20 nov", "20 de noviembre". */
+const DATE = /\b(\d{1,2})\s+(?:de\s+)?(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)[a-záéíóú]*\.?/gi;
+const datesIn = (text: string) => [...text.matchAll(DATE)].map((m) => `${Number(m[1])} ${m[2].toLowerCase()}`);
+const withoutDates = (text: string) => text.replace(DATE, " ");
 
 /**
- * The AI's line if it invents no number; null otherwise (or when empty). A number with a unit
- * (score, degrees, sets × reps) must appear with the same unit in the facts; a plain number must
- * appear somewhere in the facts; numbers written as words are not allowed.
+ * The AI's line if it invents no number; null otherwise (or when empty). A date must be a date
+ * in the facts; a number with a unit (score, degrees, sets × reps) must appear with the same unit;
+ * any other number must appear in the facts outside a date ("20 nov" doesn't allow a plain 20);
+ * numbers written as words are not allowed.
  */
 export function groundedLine(line: string | null | undefined, factsText: string): string | null {
   const t = line?.trim();
   if (!t) return null;
   if (NUMBER_WORDS.test(t)) return null;
-  const facts = cleanFacts(factsText);
+  const numbered = factsText.replace(/^\s*\d+\.\s/gm, "");
+  const knownDates = new Set(datesIn(numbered));
+  if (!datesIn(t).every((d) => knownDates.has(d))) return null;
+  const facts = withoutDates(numbered);
+  const rest = withoutDates(t);
   const knownUnits = new Set(unitTokens(facts));
-  if (!unitTokens(t).every((u) => knownUnits.has(u))) return null;
+  if (!unitTokens(rest).every((u) => knownUnits.has(u))) return null;
   const known = new Set(numbersIn(facts));
-  return numbersIn(t).every((n) => known.has(n)) ? t : null;
+  return numbersIn(rest).every((n) => known.has(n)) ? t : null;
 }
 
 /** Suggestions that cite at least one real fact (1-based) and invent no numbers. */
