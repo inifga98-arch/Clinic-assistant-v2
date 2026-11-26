@@ -122,35 +122,79 @@ export function numbersIn(text: string): string[] {
   return (text.match(/\d+(?:[.,]\d+)?/g) ?? []).map((n) => n.replace(",", "."));
 }
 
-/** Numbers that carry a unit: "3/10", "4/5", "115°", "3×10". They must match as a whole. */
-const UNIT_TOKEN = /\d+(?:[.,]\d+)?\s*(?:\/\s*\d+|°|[×x]\s*\d+)/gi;
-const unitTokens = (text: string) => (text.match(UNIT_TOKEN) ?? []).map((t) => t.replace(/\s+/g, "").replace(",", ".").toLowerCase().replace("x", "×"));
+/** Numbers that carry a unit: scores "3/10" (also "3 de 10"), degrees "115°" ("115 grados"), sets × reps "3×10". */
+const SCORE = /\d+(?:[.,]\d+)?\s*\/\s*\d+/g;
+const DEGREES = /\d+(?:[.,]\d+)?\s*°/g;
+const SETS = /\d+\s*[×x]\s*\d+/gi;
+const tokenOf = (t: string) => t.replace(/\s+/g, "").replace(",", ".").toLowerCase().replace("x", "×");
+const tokens = (text: string, re: RegExp) => (text.match(re) ?? []).map(tokenOf);
+const withoutUnits = (text: string) => text.replace(SCORE, " ").replace(DEGREES, " ").replace(SETS, " ");
+/** "3 de 10" → "3/10", "115 grados" → "115°", so the same value written two ways matches. */
+const normalizeUnits = (text: string) =>
+  text.replace(/(\d+(?:[.,]\d+)?)\s+de\s+(\d+)/g, "$1/$2").replace(/(\d+(?:[.,]\d+)?)\s*grados?\b/gi, "$1°");
 
-/** Spanish number words the model could use to slip a number past the guard ("quince minutos"). */
+/** Spanish number words; allowed only when the same word is in the facts ("los dos ejercicios"). */
 const NUMBER_WORDS =
-  /\b(dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|diecis[eé]is|diecisiete|dieciocho|diecinueve|veinte|veinti\w+|treinta|cuarenta|cincuenta|sesenta|noventa|cien|ciento)\b/i;
+  /\b(dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|diecis[eé]is|diecisiete|dieciocho|diecinueve|veinte|veinti\w+|treinta|cuarenta|cincuenta|sesenta|noventa|cien|ciento)\b/gi;
 
-/** The facts without the list's own "1." numbering and without the day of a date ("20 nov"). */
-function cleanFacts(factsText: string): string {
-  return factsText
-    .replace(/^\s*\d+\.\s/gm, "")
-    .replace(/\b\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\b/gi, "");
-}
+/** Dates relative to today can't be checked against the record ("ayer", "hace 3 días"). */
+const RELATIVE_DATE = /\b(ayer|anteayer|antier|hoy|mañana|semana pasada|mes pasado|esta semana|este mes|hace\s+\S+)\b/i;
+const RELATIVE_PAST = /\b(ayer|anteayer|antier|semana pasada|mes pasado|hace\s+\S+)\b/i;
+
+/** A day and month: "20 nov", "20 de noviembre". Month names only, so "3 de marcha" is not a date. */
+const DATE =
+  /\b(\d{1,2})\s+(?:de\s+)?(ene(?:ro)?|feb(?:rero)?|mar(?:zo)?|abr(?:il)?|may(?:o)?|jun(?:io)?|jul(?:io)?|ago(?:sto)?|sep(?:tiembre)?|set(?:iembre)?|oct(?:ubre)?|nov(?:iembre)?|dic(?:iembre)?)\b\.?/gi;
+const datesIn = (text: string) => [...text.matchAll(DATE)].map((m) => `${Number(m[1])} ${m[2].slice(0, 3).toLowerCase()}`);
+const withoutDates = (text: string) => text.replace(DATE, " ");
+const factsBody = (factsText: string) => factsText.replace(/^\s*\d+\.\s/gm, "");
 
 /**
- * The AI's line if it invents no number; null otherwise (or when empty). A number with a unit
- * (score, degrees, sets × reps) must appear with the same unit in the facts; a plain number must
- * appear somewhere in the facts; numbers written as words are not allowed.
+ * The AI's line if it invents nothing checkable; null otherwise (or when empty).
+ * - Dates must be dates in the facts; dates relative to today are not allowed.
+ * - Scores, degrees and sets × reps must appear with the same unit in the facts.
+ * - Any other number must appear in the facts as a plain number (the 10 of "3/10" or the 20 of
+ *   "20 nov" doesn't count).
+ * - Number words must appear as words in the facts.
  */
 export function groundedLine(line: string | null | undefined, factsText: string): string | null {
   const t = line?.trim();
   if (!t) return null;
-  if (NUMBER_WORDS.test(t)) return null;
-  const facts = cleanFacts(factsText);
-  const knownUnits = new Set(unitTokens(facts));
-  if (!unitTokens(t).every((u) => knownUnits.has(u))) return null;
-  const known = new Set(numbersIn(facts));
-  return numbersIn(t).every((n) => known.has(n)) ? t : null;
+  if (RELATIVE_DATE.test(t)) return null;
+  const body = factsBody(factsText);
+  const lower = body.toLowerCase();
+  for (const word of t.match(NUMBER_WORDS) ?? []) {
+    if (!new RegExp(`\\b${word.toLowerCase()}\\b`).test(lower)) return null;
+  }
+  const knownDates = new Set(datesIn(body));
+  if (!datesIn(t).every((d) => knownDates.has(d))) return null;
+  const facts = normalizeUnits(withoutDates(body));
+  const rest = normalizeUnits(withoutDates(t));
+  for (const re of [SCORE, DEGREES, SETS]) {
+    const known = new Set(tokens(facts, re));
+    if (!tokens(rest, re).every((u) => known.has(u))) return null;
+  }
+  const knownPlain = new Set(numbersIn(withoutUnits(facts)));
+  return numbersIn(withoutUnits(rest)).every((n) => knownPlain.has(n)) ? t : null;
+}
+
+/**
+ * An opinion (the 💡 suggestion) may propose new values ("4 series"), but it must not invent
+ * record facts: every date and every score or degree measure in it must be in the facts.
+ */
+export function groundedOpinion(line: string | null | undefined, factsText: string): string | null {
+  const t = line?.trim();
+  if (!t) return null;
+  if (RELATIVE_PAST.test(t)) return null; // "hoy" (today's session) is fine in an opinion
+  const body = factsBody(factsText);
+  const knownDates = new Set(datesIn(body));
+  if (!datesIn(t).every((d) => knownDates.has(d))) return null;
+  const facts = normalizeUnits(withoutDates(body));
+  const rest = normalizeUnits(withoutDates(t));
+  for (const re of [SCORE, DEGREES]) {
+    const known = new Set(tokens(facts, re));
+    if (!tokens(rest, re).every((u) => known.has(u))) return null;
+  }
+  return t;
 }
 
 /** Suggestions that cite at least one real fact (1-based) and invent no numbers. */

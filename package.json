@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "check": "node --no-warnings --import tsx scripts/check-helpers.mts && node --no-warnings --import tsx scripts/check-flow-b.mts && node --no-warnings --import tsx scripts/check-flow-a.mts && node --no-warnings --import tsx scripts/check-flow-e.mts",
+    "check": "node --no-warnings --import tsx scripts/check-helpers.mts && node --no-warnings --import tsx scripts/check-flow-b.mts && node --no-warnings --import tsx scripts/check-flow-a.mts && node --no-warnings --import tsx scripts/check-flow-e.mts && node --no-warnings --import tsx scripts/check-ask.mts",
     "simulate": "node --conditions=react-server --env-file=.env.local --import tsx scripts/simulate.ts",
     "seed-prep": "node --conditions=react-server --env-file=.env.local --import tsx scripts/seed-prep-logs.ts",
     "reminders": "node --conditions=react-server --env-file=.env.local --import tsx scripts/run-reminders.ts"

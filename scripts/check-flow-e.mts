@@ -93,7 +93,10 @@ eq(
 eq(groundedLine("Cuádriceps 3/5.", "1. Dolor 3/10. Cuádriceps 4/5."), null, "guard: a score must match a score in the facts, not just its digits");
 eq(groundedLine("Dolor 4/10.", "1. Dolor 3/10. Cuádriceps 4/5."), null, "guard: pain must match the pain in the facts");
 eq(groundedLine("Subir a quince minutos.", "1. Correr 25 min."), null, "guard: numbers written as words are dropped");
-eq(groundedLine("Volver a 20 nov.", "1. Última nota (20 nov): dolor 3/10."), null, "guard: the date's day is not an allowed number");
+eq(groundedLine("Volver a 20.", "1. Última nota (20 nov): dolor 3/10."), null, "guard: the date's day is not an allowed plain number");
+eq(groundedLine("Desde el 20 de noviembre.", "1. Última nota (20 nov): dolor 3/10."), "Desde el 20 de noviembre.", "guard: a date that is in the facts stays");
+eq(groundedLine("Desde el 21 nov.", "1. Última nota (20 nov): dolor 3/10."), null, "guard: a date not in the facts is dropped");
+eq(groundedLine("Hizo 3 de marcha.", "1. Caminata: 3 vueltas de marcha."), "Hizo 3 de marcha.", "guard: 'de marcha' is not a month");
 eq(groundedLine("Revisar dolor al correr más de 20 minutos.", "1. Actividad: correr 25 min, dolor 5/10 desde el min 20"), "Revisar dolor al correr más de 20 minutos.", "guard: a plain number in the facts stays");
 eq(groundedLine("Mantener 3×10.", "1. Plan: Sentadilla en pared 3×10, diario"), "Mantener 3×10.", "guard: sets × reps that match stay");
 eq(groundedLine("Subir a 4×10.", "1. Plan: Sentadilla en pared 3×10, diario. 2. 4 días"), null, "guard: changed sets × reps are dropped");
@@ -208,7 +211,7 @@ eq(prepFacts.includes("Plan de casa actual: Sentadilla en pared 3×10, diario; E
 eq(prepFacts.includes("Diagnóstico: Síndrome patelofemoral derecho"), true, "facts: diagnosis");
 
 // ---------------------------------------------------------------- next step and schema
-eq(NEXT_OPTIONS.after_prep.map((o) => `${o.icon} ${o.title}`), ["📝 Nota de esta sesión", "📋 Preparar otra", "🏠 Menú principal", "✅ Es todo"], "next step after prep");
+eq(NEXT_OPTIONS.after_prep.map((o) => `${o.icon} ${o.title}`), ["💬 Preguntar sobre su historial", "📝 Nota de esta sesión", "📋 Preparar otra", "🏠 Menú principal", "✅ Es todo"], "next step after prep");
 eq(nextStepText("after_prep", "brief", "Laura Méndez Ruiz"), "brief\n\n¿Algo más con *Laura Méndez Ruiz*?", "next step names the patient");
 let schemaOk = true;
 try { zodResponseFormat(PrepBriefSchema, "prep_brief"); } catch { schemaOk = false; }

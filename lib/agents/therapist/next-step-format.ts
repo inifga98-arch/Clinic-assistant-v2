@@ -13,8 +13,9 @@ export const NEXT_OPTIONS: Record<NextStepKind, Option[]> = {
   after_eval: [{ id: "note_same", title: "Nota de esta sesión", icon: "📝" }, MENU, DONE],
   after_note: [{ id: "note_other", title: "Nota de otro paciente", icon: "📝" }, MENU, DONE],
   after_later: [{ id: "note_any", title: "Nota de sesión", icon: "📝" }, MENU, DONE],
-  // After a session brief the session happens, then its note.
+  // After a session brief: dig into the record, or the session happens and then its note.
   after_prep: [
+    { id: "ask", title: "Preguntar sobre su historial", icon: "💬" },
     { id: "note_same", title: "Nota de esta sesión", icon: "📝" },
     { id: "prep_other", title: "Preparar otra", icon: "📋" },
     MENU,

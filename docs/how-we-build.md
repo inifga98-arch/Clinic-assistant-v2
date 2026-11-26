@@ -40,6 +40,10 @@ workflow), `docs/handoff/` (what changed for each workstream).
   Flow E's brief: numbers, dates and adherence come from code; the model gets numbered facts,
   must cite them, and `groundedLine` / `groundedSuggestions` (`prep-logic.ts`) drop any line
   that cites nothing or contains a number not in the facts. If the call fails, the facts still go.
+  The same holds in a conversation ("ask about a patient", `ask.ts`): the record is numbered
+  entries with labels made by code, every statement must cite entries whose text has its
+  numbers and dates, the sources shown are those labels, and the model's opinion only ever
+  appears under "💡 Sugerencia de la IA (no es del expediente)".
 - **Drafts live in the database, not in the conversation.** The conversation state expires
   after 30 minutes; a draft row (`status = 'draft'`, working data in a `draft` jsonb column)
   survives, so the user can resume. Confirmed rows are locked by a trigger; corrections after
@@ -96,8 +100,9 @@ In PRs and issues, don't write `@name` unless it is a real GitHub login.
 - Two reads may write the same thing differently ("20°" vs "20", "Flex. dorsal" vs "Flexión
   dorsal"): compare normalised values, not raw strings.
 - A bare number after "Corregir" is a correction ("3" = pain 3/10), not option 3.
-- On Windows, shell heredocs can turn `\n` inside a code string into a real line break; check
-  the file after scripted edits.
+- On Windows, shell heredocs can turn `\n` inside a code string into a real line break, and
+  `\b` in a regex into an invisible backspace character; check the file after scripted edits,
+  or use the editor.
 
 ## 4. Conversation design (summary)
 
@@ -117,7 +122,7 @@ confirmed rows: `sessions.status = 'confirmed'`, `initial_evaluations.status = '
 
 | What | How |
 | --- | --- |
-| Pure logic | `npm run check` (`scripts/check-helpers.mts`, `check-flow-b.mts`, `check-flow-a.mts`, `check-flow-e.mts`) |
+| Pure logic | `npm run check` (`scripts/check-helpers.mts`, `check-flow-b.mts`, `check-flow-a.mts`, `check-flow-e.mts`, `check-ask.mts`) |
 | A conversation | `npm run simulate -- --as "terapeuta simulador"` (or a test patient); scripts in `test_inputs/ws1_intake/es/`, `test_inputs/ws2_sessions/es/` |
 | Voice notes | `--audio file`; synthetic audio made with OpenAI TTS, committed next to the scripts |
 | Photos | `--image file`; synthetic forms in `test_inputs/ws1_intake/forms/` (`scripts/make-test-forms.py`) |
@@ -125,6 +130,7 @@ confirmed rows: `sessions.status = 'confirmed'`, `initial_evaluations.status = '
 | A migration | the rolled-back check script, locally or in the SQL editor |
 | The AI calls | `scripts/try-soap.ts`, `scripts/try-intake.ts` (real OpenAI key) |
 | Patient logs for a brief | `npm run seed-prep` (test patients only; `--flag` adds a red flag) |
+| Asking about a patient | after a brief, 💬 or just a question; `test_inputs/ws2_sessions/audio/ask_laura.mp3` |
 
 Saving in a test writes permanent, locked rows: use the test patients (Lucía Prueba Uno,
 Laura Méndez Ruiz, Carlos Méndez, Valeria Soto), never Ana López (the CRM and the patient agent
