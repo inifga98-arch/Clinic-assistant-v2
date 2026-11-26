@@ -90,7 +90,8 @@ const SEX: Record<string, string> = { female: "femenino", male: "masculino" };
 function weekText(s: ExerciseSummary, days: number): string {
   const did = s.complete + s.partial;
   const parts = [
-    `Ejercicios ${did} de ${days} ${days === 1 ? "día" : "días"} (${s.complete} completos, ${s.partial} parciales, ${s.none} sin hacer, ${s.noReply} sin respuesta).`,
+    `Ejercicios ${did} de ${days} ${days === 1 ? "día" : "días"} (${s.complete} ${s.complete === 1 ? "completo" : "completos"}, ` +
+      `${s.partial} ${s.partial === 1 ? "parcial" : "parciales"}, ${s.none} sin hacer, ${s.noReply} sin respuesta).`,
     ...s.skipped.map((k) => `No hizo ${k.name} ${k.times} ${k.times === 1 ? "vez" : "veces"}.`),
     s.comments.length ? `Comentarios: ${s.comments.map((c) => `«${c}»`).join(" ")}` : "",
   ];

@@ -16,6 +16,8 @@ export const NOT_IN_RECORD = "📂 No lo encuentro en el expediente.";
 export const SUGGESTION_LABEL = "💡 *Sugerencia de la IA (no es del expediente):*";
 
 const MAX_STATEMENTS = 6;
+/** Advice phrased as a fact ("debe ser prioridad", "se recomienda"): it belongs in the 💡 suggestion. */
+const ADVICE = /\b(debe|deben|deber[ií]a|deber[ií]an|se recomienda|recomiendo|recomendable|conviene|sugiero|se sugiere|es importante|hay que|prioridad|priorizar)\b/i;
 /** The answer goes with ASK_PROMPT and the options in one message (1,600 characters). */
 export const ANSWER_MAX = 1400;
 
@@ -33,10 +35,15 @@ const NOT_QUESTIONS = new Set(
   ["hola", "buenas", "buenos dias", "buenas tardes", "buenas noches", "ok", "okay", "va", "gracias", "listo", "si", "no", "sale"].map(normalize),
 );
 
+/** "ok", "gracias", "hola": not a question even while asking. */
+export function isSmallTalk(text: string): boolean {
+  return NOT_QUESTIONS.has(normalize(text.trim()));
+}
+
 /** After the brief: is this typed text a question about the patient (rather than a greeting or one word)? */
 export function isQuestion(text: string): boolean {
   const t = text.trim();
-  if (!t || NOT_QUESTIONS.has(normalize(t))) return false;
+  if (!t || isSmallTalk(t)) return false;
   return /[?¿]/.test(t) || t.split(/\s+/).length >= 3;
 }
 
@@ -51,10 +58,10 @@ export function groundedStatements(
   const out: { text: string; sources: string[] }[] = [];
   for (const s of statements) {
     const ids = [...new Set(s.sources)].filter((n) => Number.isInteger(n) && n >= 1 && n <= entries.length).sort((a, b) => a - b);
-    if (!ids.length) continue;
+    if (!ids.length || ADVICE.test(s.text)) continue;
     const cited = ids.map((i) => `[${entries[i - 1].label}] ${entries[i - 1].text}`).join("\n");
     const text = groundedLine(s.text, cited);
-    if (text) out.push({ text: clip(sentence(text), 220), sources: ids.map((i) => entries[i - 1].label) });
+    if (text) out.push({ text: clip(sentence(text), 220), sources: [...new Set(ids.map((i) => entries[i - 1].label))] });
     if (out.length === MAX_STATEMENTS) break;
   }
   return out;

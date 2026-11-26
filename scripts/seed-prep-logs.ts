@@ -16,6 +16,7 @@ import { db } from "@/lib/db/server";
 import type { PlanItem } from "@/lib/db/types";
 
 const SEED_MARK = "Registro de prueba (seed-prep).";
+const SEED_TAG = "seed-prep";
 const args = process.argv.slice(2);
 const phone = args.includes("--phone") ? args[args.indexOf("--phone") + 1] : "+5215500009102";
 const withFlag = args.includes("--flag");
@@ -76,8 +77,15 @@ async function main() {
     if (e) throw new Error(e.message);
   }
 
-  const { error: dErr } = await db().from("activity_logs").delete().eq("patient_id", patient.id).like("comment", `%${SEED_MARK}%`);
-  if (dErr) throw new Error(dErr.message);
+  // Seeded rows are marked in pain_duration (never shown); older runs marked the comment.
+  // Two plain deletes: an or() filter with the mark's spaces and brackets silently matched nothing.
+  for (const del of [
+    db().from("activity_logs").delete().eq("patient_id", patient.id).eq("pain_duration", SEED_TAG),
+    db().from("activity_logs").delete().eq("patient_id", patient.id).like("comment", `%${SEED_MARK}%`),
+  ]) {
+    const { error: dErr } = await del;
+    if (dErr) throw new Error(dErr.message);
+  }
   const at = (day: string, hour: number) => new Date(`${day}T${String(hour).padStart(2, "0")}:00:00-06:00`).toISOString();
   const last = days[days.length - 1];
   type Act = { activity: string; duration_min: number | null; pain_nprs: number | null; pain_location: string | null; onset_min: number | null; red_flag: boolean; logged_at: string };
@@ -94,8 +102,8 @@ async function main() {
       acts.map((a) => ({
         ...a,
         patient_id: patient.id,
-        pain_duration: null,
-        comment: a.red_flag ? `La rodilla se inflamó y no puede apoyar. ${SEED_MARK}` : SEED_MARK,
+        pain_duration: SEED_TAG,
+        comment: a.red_flag ? "La rodilla se inflamó y no puede apoyar." : null,
       })),
     );
   if (aErr) throw new Error(aErr.message);

@@ -1,6 +1,8 @@
 import "server-only";
 import type { AgentResult, TherapistContext } from "@/lib/agents/types";
 import { matchOption, normalizeText, sendOptions, sendText, type Option } from "@/lib/whatsapp/send";
+import { ASK_FLOW, handleAsk, startAsk } from "./ask";
+import { ASK_OPTIONS, isQuestion } from "./ask-format";
 import { handleInitialEval, startInitialEval } from "./initial-eval";
 import { handleNewPatient, startNewPatient } from "./new-patient";
 import { NEXT_FLOW } from "./next-step";
@@ -13,7 +15,8 @@ import { handleSessionNote, startSessionNote, startSessionNoteFor } from "./sess
 // E (prep a session), F (handoff). See docs/prd.md "Happy flows" and "Therapist agent".
 //
 // Shows the menu (T-1) and hands each choice to its flow (one file per flow in this folder).
-// Built: Flow A (new-patient.ts, initial-eval.ts), Flow B (session-note.ts), Flow E (prep.ts).
+// Built: Flow A (new-patient.ts, initial-eval.ts), Flow B (session-note.ts), Flow E (prep.ts, then
+// ask.ts for questions about the patient's record).
 // Still a placeholder: F.
 
 export const MENU: Option[] = [
@@ -66,6 +69,11 @@ export async function handleTherapistMessage(ctx: TherapistContext): Promise<Age
       if (patient) return startSessionNoteFor(ctx, patient);
     }
     if (pick?.id === "prep_other") return startPrep(ctx);
+    const patientId = String(state.context.patientId ?? "");
+    if (pick?.id === "ask" && patientId) return startAsk(ctx, patientId, false);
+    // After a brief, a question typed or spoken straight away starts the conversation about that patient.
+    const spoken = message.media.some((m) => m.contentType.startsWith("audio/"));
+    if (!pick && kind === "after_prep" && patientId && (spoken || isQuestion(message.body))) return startAsk(ctx, patientId, true);
     if (pick) return startSessionNote(ctx);
     return handleTherapistMessage({ ...ctx, state: null });
   }
@@ -74,6 +82,15 @@ export async function handleTherapistMessage(ctx: TherapistContext): Promise<Age
   if (state?.flow === "new_patient") return handleNewPatient(ctx);
   if (state?.flow === "initial_eval") return handleInitialEval(ctx);
   if (state?.flow === "prep") return handlePrep(ctx);
+  if (state?.flow === ASK_FLOW) {
+    const pick = matchOption(message.buttonPayload ?? message.body, ASK_OPTIONS);
+    if (pick?.id === "menu") return showMenu(ctx, `¿Qué quieres hacer, ${firstName}?`);
+    if (pick?.id === "note_same") {
+      const patient = await getPatient(String(state.context.patientId ?? ""));
+      if (patient) return startSessionNoteFor(ctx, patient);
+    }
+    return handleAsk(ctx);
+  }
 
   if (state) {
     await sendText(message.phone, "Ese paso todavía está en construcción. Escribe *menu* para empezar de nuevo.");

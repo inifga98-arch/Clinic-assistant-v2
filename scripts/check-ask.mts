@@ -72,7 +72,7 @@ eq(entries[1].text.includes('"nprs":6') && !entries[1].text.includes("empty") &&
 eq(entries[3].text, "Dolor 3/10. S: Menos dolor. O: rodilla flexión 115°.", "record: note with its pain");
 eq(entries[5].text, "Sentadilla en pared 3×10, diario", "record: plan lines");
 eq(entries[11].text, "⚠️ Alerta: correr 10 min, dolor 8/10 rodilla. Comentario: se inflamó", "record: red flag log");
-eq(entries[8].text.startsWith("Ejercicios 2 de 7 días"), true, `record: weekly adherence text (${entries[8].text})`);
+eq(entries[8].text.startsWith("Ejercicios 2 de 7 días (1 completo, 1 parcial, 0 sin hacer, 5 sin respuesta)."), true, `record: weekly adherence text (${entries[8].text})`);
 eq(recordText(entries.slice(2, 4)), "1. [nota 6 nov] Dolor 5/10. S: Dolor al subir escaleras. O: rodilla flexión 95°.\n2. [nota 20 nov] Dolor 3/10. S: Menos dolor. O: rodilla flexión 115°.", "record: numbered text for the model");
 
 const many: RecordData = {
@@ -102,6 +102,23 @@ eq(kept, [
   { text: "La flexión pasó de 95° a 115°.", sources: ["nota 6 nov", "nota 20 nov"] },
   { text: "Mejoró desde el 6 nov.", sources: ["nota 6 nov"] },
 ], "answers: only statements whose numbers are in the cited entries, sources from labels");
+
+eq(
+  groundedStatements(
+    [
+      { text: "El control del dolor debe ser prioridad antes de progresar.", sources: [3] },
+      { text: "Se recomienda no progresar.", sources: [3] },
+      { text: "Conviene revalorar.", sources: [3] },
+      { text: "Refirió menos dolor.", sources: [3, 3] },
+    ],
+    small,
+  ),
+  [{ text: "Refirió menos dolor.", sources: ["nota 20 nov"] }],
+  "answers: advice written as a record fact is dropped; repeated sources shown once",
+);
+const twins = [{ label: "paciente", text: "x" }, { label: "registro 25 nov", text: "correr 25 min" }, { label: "registro 25 nov", text: "correr 10 min" }];
+eq(groundedStatements([{ text: "Corrió dos veces.", sources: [2, 3] }], twins), [], "answers: number words still dropped");
+eq(groundedStatements([{ text: "Corrió el 25 nov.", sources: [2, 3] }], twins)[0]?.sources, ["registro 25 nov"], "answers: two entries with the same label shown once");
 
 const answer = formatAnswer(kept, "si hoy tolera la sentadilla sin dolor, progresar a 4 series");
 eq(answer.split("\n"), [
